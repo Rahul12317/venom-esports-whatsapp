@@ -156,6 +156,20 @@
           <input type="time" id="match-time" required class="w-full px-3 py-2.5 bg-black/80 border border-venom-border rounded-xl text-white text-xs focus:outline-none focus:border-venom-neon cursor-pointer">
         </div>
 
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-hourglass-half"></i> Duration (Minutes)
+          </label>
+          <input type="number" id="match-duration" value="30" min="5" max="300" required class="w-full px-3 py-2.5 bg-black/80 border border-venom-border rounded-xl text-white text-xs focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-clock-rotate-left"></i> Match End Time
+          </label>
+          <input type="time" id="match-end-time" required class="w-full px-3 py-2.5 bg-black/80 border border-venom-border rounded-xl text-white text-xs focus:outline-none focus:border-venom-neon cursor-pointer">
+        </div>
+
         <div class="md:col-span-2">
           <label class="block text-gray-400 font-bold mb-1 uppercase">Banner Image URL (Optional)</label>
           <input type="url" id="match-banner" value="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=800&auto=format&fit=crop" class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
@@ -282,7 +296,7 @@
     const ADMIN_PHONE = "9170980044";
     let liveTournamentsMap = {};
 
-    ['match-date', 'match-time'].forEach(id => {
+    ['match-date', 'match-time', 'match-end-time'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.addEventListener('click', () => {
@@ -308,6 +322,26 @@
         window.location.href = "dashboard.html";
       }
     });
+
+    // ऑटोमैटिक एंड टाइम कैलकुलेट करने की फंक्शनैलिटी
+    function updateEndTime() {
+      const dateVal = document.getElementById('match-date').value;
+      const timeVal = document.getElementById('match-time').value;
+      const durationVal = Number(document.getElementById('match-duration').value) || 30;
+
+      if (dateVal && timeVal) {
+        const startTime = new Date(`${dateVal}T${timeVal}`);
+        const endTime = new Date(startTime.getTime() + (durationVal * 60 * 1000));
+        
+        const hours = String(endTime.getHours()).padStart(2, '0');
+        const minutes = String(endTime.getMinutes()).padStart(2, '0');
+        document.getElementById('match-end-time').value = `${hours}:${minutes}`;
+      }
+    }
+
+    document.getElementById('match-date')?.addEventListener('change', updateEndTime);
+    document.getElementById('match-time')?.addEventListener('change', updateEndTime);
+    document.getElementById('match-duration')?.addEventListener('input', updateEndTime);
 
     // 1. WITHDRAWALS
     const withdrawListEl = document.getElementById('withdraw-requests-list');
@@ -451,14 +485,6 @@
           sel.appendChild(opt);
         });
 
-        let matchTime = "Schedule Pending";
-        if (t.matchTime) {
-          const d = new Date(t.matchTime);
-          if (!isNaN(d.getTime())) {
-            matchTime = d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
-          }
-        }
-
         const isFull = bookedSlots >= maxSlots;
 
         const card = document.createElement('div');
@@ -484,20 +510,23 @@
       });
     });
 
-    // Create Tournament (100% Manual Setup)
+    // Create Tournament Form Submit
     document.getElementById('create-match-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       try {
         const dateVal = document.getElementById('match-date').value;
         const timeVal = document.getElementById('match-time').value;
+        const endTimeVal = document.getElementById('match-end-time').value;
+        const durationVal = Number(document.getElementById('match-duration').value) || 30;
         const mapName = document.getElementById('match-map').value.trim();
         const formatRules = document.getElementById('match-format-rules').value.trim();
         const prizePool = document.getElementById('match-prize-pool').value.trim();
 
-        if (!dateVal || !timeVal) return alert("Date aur Time select karein!");
+        if (!dateVal || !timeVal || !endTimeVal) return alert("Date, Start Time aur End Time select karein!");
         if (!mapName) return alert("Kripya Map ka naam enter karein!");
 
-        const combinedDate = new Date(`${dateVal}T${timeVal}`);
+        const startDate = new Date(`${dateVal}T${timeVal}`);
+        const endDate = new Date(`${dateVal}T${endTimeVal}`);
         const mode = document.getElementById('match-mode').value;
         const maxSlots = Number(document.getElementById('match-max-slots').value) || 25;
 
@@ -509,7 +538,9 @@
           prizePool: prizePool,
           maxSlots: maxSlots,
           bookedSlots: 0,
-          matchTime: combinedDate.toISOString(),
+          matchTime: startDate.toISOString(),
+          matchEndTime: endDate.toISOString(),
+          matchDuration: durationVal,
           entryFee: Number(document.getElementById('match-fee').value),
           bannerUrl: document.getElementById('match-banner').value,
           createdAt: new Date().toISOString()
@@ -517,7 +548,7 @@
 
         await addDoc(collection(db, "tournaments"), payload);
         document.getElementById('create-match-form').reset();
-        alert(`Tournament successfully published!`);
+        alert(`Tournament successfully published with Start & End Time!`);
       } catch (err) {
         alert("Creation error: " + err.message);
       }
