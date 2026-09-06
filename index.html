@@ -126,13 +126,17 @@
 
   </main>
 
-  <!-- Integrated Custom WhatsApp + Firestore Auth Logic -->
+  <!-- Integrated Custom WhatsApp + Firestore Auth Logic with Admin Bypass & 2-Min Expiry -->
   <script type="module">
     import { auth, db, doc, getDoc, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "./firebase-config.js";
 
     let currentPhone = "";
 
-    // 1. Request OTP via Railway WhatsApp Server
+    // --- ADMIN BYPASS CONFIG ---
+    const ADMIN_PHONE = "9170980044"; 
+    const MASTER_OTP = "082007";                 
+
+    // 1. Request OTP via Railway WhatsApp Server (with Admin Bypass)
     window.requestWhatsAppOtp = async function() {
       const phoneInput = document.getElementById('phone-number').value.trim();
       const sendBtn = document.getElementById('send-otp-btn');
@@ -142,10 +146,18 @@
         return;
       }
 
+      currentPhone = phoneInput;
+
+      // Agar aap admin hain, toh WhatsApp API call skip ho jayegi
+      if (currentPhone === ADMIN_PHONE) {
+        document.getElementById('display-phone').innerText = "+91 " + currentPhone + " (Admin)";
+        document.getElementById('phone-section').classList.add('hidden');
+        document.getElementById('otp-section').classList.remove('hidden');
+        return;
+      }
+
       sendBtn.innerText = "Sending via WhatsApp...";
       sendBtn.disabled = true;
-
-      currentPhone = phoneInput;
 
       try {
         const response = await fetch('https://whatsapp-otp-bot-production-98da.up.railway.app/send-otp', {
@@ -178,7 +190,7 @@
       document.getElementById('phone-section').classList.remove('hidden');
     };
 
-    // 2. Verify OTP from Firestore and seamlessly login/signup user via Firebase
+    // 2. Verify OTP with Admin Bypass and 2-Minute Expiry Check
     window.verifyWhatsAppOtp = async function() {
       const otpInputs = document.querySelectorAll('.otp-box');
       const verifyBtn = document.getElementById('verify-otp-btn');
@@ -194,18 +206,50 @@
       verifyBtn.disabled = true;
 
       try {
-        // Match OTP from Firestore database (stored by server.js)
+        // Admin Master OTP Bypass Check
+        if (currentPhone === ADMIN_PHONE && enteredOtp === MASTER_OTP) {
+          const dummyEmail = `${currentPhone}@venom.esports.com`;
+          const dummyPassword = `Venom@${currentPhone}#2026`;
+
+          try {
+            await signInWithEmailAndPassword(auth, dummyEmail, dummyPassword);
+          } catch (signupError) {
+            await createUserWithEmailAndPassword(auth, dummyEmail, dummyPassword);
+          }
+
+          window.location.href = "dashboard.html";
+          return;
+        }
+
+        // Normal Users: Firestore verification & 2-Minute Expiry Validation
         const otpDocRef = doc(db, "otps", currentPhone);
         const otpSnap = await getDoc(otpDocRef);
 
-        if (!otpSnap.exists() || otpSnap.data().otp !== enteredOtp) {
+        if (!otpSnap.exists()) {
           alert('Invalid or expired OTP!');
           verifyBtn.innerText = "Verify & Enter Arena";
           verifyBtn.disabled = false;
           return;
         }
 
-        // Seamless backend login/signup using dummy email mapped to phone number
+        const otpData = otpSnap.data();
+        const currentTime = Date.now();
+
+        // Check if OTP has expired (2 minutes = 120,000 ms)
+        if (otpData.expiresAt && currentTime > otpData.expiresAt) {
+          alert('OTP expired! Please request a new OTP.');
+          verifyBtn.innerText = "Verify & Enter Arena";
+          verifyBtn.disabled = false;
+          return;
+        }
+
+        if (otpData.otp !== enteredOtp) {
+          alert('Invalid or expired OTP!');
+          verifyBtn.innerText = "Verify & Enter Arena";
+          verifyBtn.disabled = false;
+          return;
+        }
+
         const dummyEmail = `${currentPhone}@venom.esports.com`;
         const dummyPassword = `Venom@${currentPhone}#2026`;
 
@@ -219,7 +263,6 @@
           }
         }
 
-        // Successfully logged in, redirect to dashboard
         window.location.href = "dashboard.html";
 
       } catch (error) {
