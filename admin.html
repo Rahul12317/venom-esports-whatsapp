@@ -279,7 +279,7 @@
       getDocs 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    const ADMIN_PHONE = "+919170980044";
+    const ADMIN_PHONE = "9170980044";
     let liveTournamentsMap = {};
 
     ['match-date', 'match-time'].forEach(id => {
@@ -292,8 +292,19 @@
     });
 
     onAuthStateChanged(auth, (user) => {
-      if (!user || user.phoneNumber !== ADMIN_PHONE) {
-        alert("Access Denied!");
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+
+      const isAdmin = (
+        user.email === `${ADMIN_PHONE}@venom.esports.com` || 
+        user.phoneNumber === `+91${ADMIN_PHONE}` || 
+        user.phoneNumber === ADMIN_PHONE
+      );
+
+      if (!isAdmin) {
+        alert("Access Denied! You are not authorized as Admin.");
         window.location.href = "dashboard.html";
       }
     });
