@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#39ff14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Venom eSports</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            venom: {
+              green: '#22c55e',
+              neon: '#39ff14',
+              dark: '#0a0d0c',
+              card: '#121714',
+              border: '#1f2922'
+            }
+          },
+          fontFamily: {
+            gaming: ['Orbitron', 'sans-serif'],
+            body: ['Inter', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    input[type="date"], input[type="time"] { color-scheme: dark; }
+    input[type="date"]::-webkit-calendar-picker-indicator,
+    input[type="time"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+      cursor: pointer;
+      opacity: 0.9;
+      padding: 4px;
+    }
+  </style>
+</head>
+<body class="bg-venom-dark text-gray-200 font-body min-h-screen p-4 md:p-8">
+
+  <div class="max-w-5xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <header class="flex items-center justify-between border-b border-venom-border pb-4">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-shield-halved text-venom-neon text-2xl"></i>
+        <h1 class="font-gaming font-black text-xl text-white tracking-wider">VENOM ADMIN ENGINE</h1>
+      </div>
+      <a href="dashboard.html" class="px-4 py-2 bg-black/60 border border-venom-border hover:border-venom-neon text-xs font-gaming font-bold rounded-xl text-gray-300 hover:text-white transition">
+        Player Dashboard &rarr;
+      </a>
+    </header>
+
+    <!-- SECTION: Pending Withdrawals -->
+    <section class="bg-venom-card border border-yellow-400/40 rounded-2xl p-5 space-y-4 shadow-[0_0_15px_rgba(250,204,21,0.08)]">
+      <div class="flex items-center justify-between border-b border-venom-border pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-arrow-up-from-bracket text-yellow-400 text-base"></i>
+          <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Pending Withdrawal Requests</h2>
+        </div>
+        <span id="pending-withdraw-count" class="text-xs font-gaming text-yellow-400 font-bold">0 Pending</span>
+      </div>
+      <div id="withdraw-requests-list" class="space-y-3">
+        <p class="text-xs text-gray-500 text-center py-4">Koi pending withdrawal request nahi hai.</p>
+      </div>
+    </section>
+
+    <!-- SECTION: Pending UPI Recharges -->
+    <section class="bg-venom-card border border-venom-neon/50 rounded-2xl p-5 space-y-4 shadow-[0_0_15px_rgba(57,255,20,0.1)]">
+      <div class="flex items-center justify-between border-b border-venom-border pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-money-bill-transfer text-venom-neon text-base"></i>
+          <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Pending Recharge Requests</h2>
+        </div>
+        <span id="pending-recharge-count" class="text-xs font-gaming text-venom-neon font-bold">0 Pending</span>
+      </div>
+      <div id="recharge-requests-list" class="space-y-3">
+        <p class="text-xs text-gray-500 text-center py-4">Koi pending request nahi hai.</p>
+      </div>
+    </section>
+
+    <!-- SECTION: Create Tournament (100% Fully Custom Setup) -->
+    <section class="bg-venom-card border border-venom-border rounded-2xl p-5 space-y-4">
+      <div class="flex items-center gap-2 border-b border-venom-border pb-3">
+        <i class="fa-solid fa-plus text-venom-neon"></i>
+        <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Create Custom Tournament (Aapke Rules, Aapka Format)</h2>
+      </div>
+
+      <form id="create-match-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Tournament Title</label>
+          <input type="text" id="match-title" placeholder="e.g. Solo Top 5 Custom Battle #01" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-map-location-dot"></i> Map Name (Manual)
+          </label>
+          <input type="text" id="match-map" placeholder="e.g. Erangel, Livik, Sanhok" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Lineup Mode (Team Size)</label>
+          <select id="match-mode" class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+            <option value="Solo">Solo (Single Player)</option>
+            <option value="Duo">Duo (2 Players per Team)</option>
+            <option value="Squad">Squad (4 Players per Team)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-yellow-400 font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-users"></i> Maximum Slots Limit
+          </label>
+          <input type="number" id="match-max-slots" min="2" max="100" value="25" required class="w-full px-3 py-2.5 bg-black/60 border border-yellow-400/50 rounded-xl text-white font-bold focus:outline-none focus:border-yellow-400">
+        </div>
+
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Entry Fee (Points)</label>
+          <input type="number" id="match-fee" value="20" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase">Total Prize Pool Display</label>
+          <input type="text" id="match-prize-pool" placeholder="e.g. 240 Pts / Custom Pool" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <!-- CUSTOM RULES & WINNER CRITERIA DESCRIPTION -->
+        <div class="md:col-span-2">
+          <label class="block text-yellow-400 font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-solid fa-award"></i> Custom Format & Prize Rules (Card par dikhega)
+          </label>
+          <input type="text" id="match-format-rules" placeholder="e.g. Top 5 Win (1st: 100, 2nd: 60, 3rd: 40, 4th: 25, 5th: 15 Pts) OR Per Kill 7 Pts" required class="w-full px-3 py-2.5 bg-black/80 border border-yellow-400/50 rounded-xl text-white focus:outline-none focus:border-yellow-400">
+        </div>
+
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-regular fa-calendar"></i> Match Date
+          </label>
+          <input type="date" id="match-date" required class="w-full px-3 py-2.5 bg-black/80 border border-venom-border rounded-xl text-white text-xs focus:outline-none focus:border-venom-neon cursor-pointer">
+        </div>
+
+        <div>
+          <label class="block text-venom-neon font-bold mb-1 uppercase flex items-center gap-1.5">
+            <i class="fa-regular fa-clock"></i> Match Start Time
+          </label>
+          <input type="time" id="match-time" required class="w-full px-3 py-2.5 bg-black/80 border border-venom-border rounded-xl text-white text-xs focus:outline-none focus:border-venom-neon cursor-pointer">
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Banner Image URL (Optional)</label>
+          <input type="url" id="match-banner" value="https://images.unsplash.com/photo-1542751371-adc38448a05e?q=80&w=800&auto=format&fit=crop" class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+
+        <div class="md:col-span-2 pt-2">
+          <button type="submit" class="w-full py-3 bg-venom-neon text-black font-gaming font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-venom-green transition">
+            Publish Tournament to Dashboard
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECTION: PRE-MATCH LOBBY LINEUP CHECKLIST -->
+    <section class="bg-venom-card border border-venom-border rounded-2xl p-5 space-y-4">
+      <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-venom-border pb-3 gap-2">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-users-viewfinder text-venom-neon text-lg"></i>
+          <div>
+            <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Lobby Lineup Verification (Pre-Match Checklist)</h2>
+            <p class="text-[11px] text-gray-400">Match room start se pehle har player ka BGMI IGN & UID verify karein.</p>
+          </div>
+        </div>
+        <select id="filter-match-players" onchange="loadMatchPlayersList(this.value)" class="px-3 py-2 bg-black/80 border border-venom-neon/40 text-xs font-gaming font-bold text-white rounded-xl">
+          <option value="">Select match to view lineups...</option>
+        </select>
+      </div>
+
+      <div id="players-table-container" class="overflow-x-auto">
+        <p class="text-xs text-gray-500 text-center py-4">Upar se tournament select karein player list dekhne ke liye.</p>
+      </div>
+    </section>
+
+    <!-- SECTION: POST-MATCH UNIVERSAL SETTLEMENT ENGINE -->
+    <section class="bg-venom-card border border-venom-neon/50 rounded-2xl p-5 space-y-4 shadow-[0_0_15px_rgba(57,255,20,0.08)]">
+      <div class="flex items-center gap-2 border-b border-venom-border pb-3">
+        <i class="fa-solid fa-calculator text-venom-neon text-base"></i>
+        <div>
+          <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Post-Match Results & Payout Settlement</h2>
+          <p class="text-[11px] text-gray-400">Aap apni marzi se jitne marzi winners ko points distribute kar sakte hain.</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Select Completed Match</label>
+          <select id="settle-match-select" onchange="loadSettlementSheet(this.value)" class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+            <option value="">Choose tournament to settle...</option>
+          </select>
+        </div>
+        <div id="match-rule-indicator" class="flex items-center bg-black/40 border border-venom-border px-4 py-2 rounded-xl text-gray-300">
+          Select match to view format and players
+        </div>
+      </div>
+
+      <div id="settlement-sheet-container" class="space-y-4 pt-2"></div>
+    </section>
+
+    <!-- SECTION: Room Broadcast -->
+    <section class="bg-venom-card border border-venom-border rounded-2xl p-5 space-y-4">
+      <div class="flex items-center gap-2 border-b border-venom-border pb-3">
+        <i class="fa-solid fa-tower-broadcast text-venom-neon"></i>
+        <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Broadcast Room ID & Password</h2>
+      </div>
+
+      <form id="broadcast-form" class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Select Match</label>
+          <select id="broadcast-match-select" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+            <option value="">Choose tournament...</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Room ID</label>
+          <input type="text" id="broadcast-room-id" placeholder="e.g. 5849302" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+        <div>
+          <label class="block text-gray-400 font-bold mb-1 uppercase">Password</label>
+          <input type="text" id="broadcast-room-pass" placeholder="e.g. 1234" required class="w-full px-3 py-2.5 bg-black/60 border border-venom-border rounded-xl text-white focus:outline-none focus:border-venom-neon">
+        </div>
+        <div class="md:col-span-3 pt-2">
+          <button type="submit" class="w-full py-3 bg-venom-neon text-black font-gaming font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-venom-green transition">
+            Broadcast Credentials to Joined Players
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- SECTION: Active Tournaments -->
+    <section class="bg-venom-card border border-venom-border rounded-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-venom-border pb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-list-check text-venom-neon"></i>
+          <h2 class="font-gaming font-bold text-sm text-white uppercase tracking-wider">Live Tournaments Management</h2>
+        </div>
+        <span id="tournament-count" class="text-xs font-gaming text-venom-neon font-bold">0 Matches</span>
+      </div>
+
+      <div id="admin-tournaments-list" class="space-y-3">
+        <p class="text-xs text-gray-500 text-center py-4">Loading tournaments...</p>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module">
+    import { auth, db } from "./firebase-config.js";
+    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      collection, 
+      addDoc, 
+      deleteDoc, 
+      doc, 
+      setDoc, 
+      updateDoc, 
+      increment, 
+      onSnapshot, 
+      orderBy, 
+      query, 
+      where, 
+      getDocs 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    const ADMIN_PHONE = "+919170980044";
+    let liveTournamentsMap = {};
+
+    ['match-date', 'match-time'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('click', () => {
+          try { if (typeof el.showPicker === 'function') el.showPicker(); } catch (e) {}
+        });
+      }
+    });
+
+    onAuthStateChanged(auth, (user) => {
+      if (!user || user.phoneNumber !== ADMIN_PHONE) {
+        alert("Access Denied!");
+        window.location.href = "dashboard.html";
+      }
+    });
+
+    // 1. WITHDRAWALS
+    const withdrawListEl = document.getElementById('withdraw-requests-list');
+    const withdrawCountEl = document.getElementById('pending-withdraw-count');
+    onSnapshot(query(collection(db, "withdraw_requests"), where("status", "==", "pending")), (snapshot) => {
+      withdrawListEl.innerHTML = "";
+      withdrawCountEl.innerText = `${snapshot.size} Pending`;
+      if (snapshot.empty) {
+        withdrawListEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Koi pending withdrawal request nahi hai.</p>';
+        return;
+      }
+      snapshot.forEach((docSnap) => {
+        const w = docSnap.data();
+        const reqId = docSnap.id;
+        const time = new Date(w.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        const card = document.createElement('div');
+        card.className = "flex flex-col md:flex-row items-start md:items-center justify-between bg-black/60 border border-venom-border p-3.5 rounded-xl gap-3 text-xs";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-gaming font-black text-yellow-400 text-sm">Pay: ₹${w.amount} (${w.points} Pts)</span>
+              <span class="text-[10px] text-gray-400">• ${time}</span>
+            </div>
+            <p class="text-white font-bold mt-0.5">Player Phone: <span class="text-gray-300 font-normal">${w.userPhone}</span></p>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="text-gray-400">Transfer to UPI:</span>
+              <span class="font-mono bg-black/80 px-2 py-0.5 border border-yellow-400/40 text-yellow-400 font-bold rounded">${w.upiId}</span>
+              <button onclick="navigator.clipboard.writeText('${w.upiId}'); alert('UPI Copied: ${w.upiId}');" class="text-gray-400 hover:text-white p-1">
+                <i class="fa-regular fa-copy"></i>
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <button onclick="markWithdrawPaid('${reqId}')" class="flex-1 md:flex-none px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-black font-gaming font-bold text-[11px] rounded-lg uppercase tracking-wider transition">
+              <i class="fa-solid fa-check"></i> Mark as Paid ✓
+            </button>
+            <button onclick="rejectWithdrawRefund('${reqId}', '${w.userId}', ${w.points})" class="px-3 py-2 bg-red-600/70 hover:bg-red-600 text-white font-gaming text-[11px] rounded-lg transition">
+              <i class="fa-solid fa-rotate-left"></i> Reject & Refund
+            </button>
+          </div>
+        `;
+        withdrawListEl.appendChild(card);
+      });
+    });
+
+    window.markWithdrawPaid = async function(reqId) {
+      if (confirm("Payment send kar diya hai?")) {
+        await updateDoc(doc(db, "withdraw_requests", reqId), { status: "completed", paidAt: new Date().toISOString() });
+      }
+    };
+
+    window.rejectWithdrawRefund = async function(reqId, userId, points) {
+      if (confirm(`Withdrawal cancel karke user ko ${points} points refund karein?`)) {
+        await updateDoc(doc(db, "users", userId), { points: increment(points) });
+        await updateDoc(doc(db, "withdraw_requests", reqId), { status: "rejected", rejectedAt: new Date().toISOString() });
+      }
+    };
+
+    // 2. RECHARGES
+    const rechargeListEl = document.getElementById('recharge-requests-list');
+    const rechargeCountEl = document.getElementById('pending-recharge-count');
+    onSnapshot(query(collection(db, "recharge_requests"), where("status", "==", "pending")), (snapshot) => {
+      rechargeListEl.innerHTML = "";
+      rechargeCountEl.innerText = `${snapshot.size} Pending`;
+      if (snapshot.empty) {
+        rechargeListEl.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Koi pending request nahi hai.</p>';
+        return;
+      }
+      snapshot.forEach((docSnap) => {
+        const r = docSnap.data();
+        const reqId = docSnap.id;
+        const time = new Date(r.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+
+        const card = document.createElement('div');
+        card.className = "flex flex-col md:flex-row items-start md:items-center justify-between bg-black/60 border border-venom-border p-3.5 rounded-xl gap-3 text-xs";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="font-gaming font-black text-venom-neon text-sm">+${r.amount} Points (₹${r.amount})</span>
+              <span class="text-[10px] text-gray-400">• ${time}</span>
+            </div>
+            <p class="text-white font-bold mt-0.5">Player Phone: <span class="text-gray-300 font-normal">${r.userPhone}</span></p>
+            <p class="text-gray-400 font-mono mt-0.5">UTR: <span class="text-yellow-400 font-bold">${r.utr}</span></p>
+          </div>
+          <div class="flex items-center gap-2 w-full md:w-auto">
+            <button onclick="approveRecharge('${reqId}', '${r.userId}', ${r.amount})" class="flex-1 md:flex-none px-4 py-2 bg-venom-neon hover:bg-venom-green text-black font-gaming font-bold text-[11px] rounded-lg uppercase tracking-wider transition">
+              <i class="fa-solid fa-check"></i> Approve & Credit
+            </button>
+            <button onclick="rejectRecharge('${reqId}')" class="px-3 py-2 bg-red-600/70 hover:bg-red-600 text-white font-gaming text-[11px] rounded-lg transition">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        `;
+        rechargeListEl.appendChild(card);
+      });
+    });
+
+    window.approveRecharge = async function(reqId, userId, amount) {
+      if (confirm(`₹${amount} points user ko credit karein?`)) {
+        await updateDoc(doc(db, "users", userId), { points: increment(amount) });
+        await updateDoc(doc(db, "recharge_requests", reqId), { status: "approved", approvedAt: new Date().toISOString() });
+      }
+    };
+
+    window.rejectRecharge = async function(reqId) {
+      if (confirm("Reject request?")) {
+        await updateDoc(doc(db, "recharge_requests", reqId), { status: "rejected", rejectedAt: new Date().toISOString() });
+      }
+    };
+
+    // 3. TOURNAMENTS
+    const filterSelect = document.getElementById('filter-match-players');
+    const settleSelect = document.getElementById('settle-match-select');
+    const broadcastSelect = document.getElementById('broadcast-match-select');
+    const tourneyListEl = document.getElementById('admin-tournaments-list');
+    const countEl = document.getElementById('tournament-count');
+
+    onSnapshot(query(collection(db, "tournaments"), orderBy("createdAt", "desc")), (snapshot) => {
+      tourneyListEl.innerHTML = "";
+      filterSelect.innerHTML = '<option value="">Select match to view lineups...</option>';
+      settleSelect.innerHTML = '<option value="">Choose tournament to settle...</option>';
+      broadcastSelect.innerHTML = '<option value="">Choose tournament...</option>';
+      countEl.innerText = `${snapshot.size} Matches`;
+
+      liveTournamentsMap = {};
+
+      snapshot.forEach((docSnap) => {
+        const t = docSnap.data();
+        const id = docSnap.id;
+        liveTournamentsMap[id] = t;
+
+        const maxSlots = t.maxSlots || 25;
+        const bookedSlots = t.bookedSlots || 0;
+
+        const optText = `${t.title} (${bookedSlots}/${maxSlots} Slots • ${t.map})`;
+        [filterSelect, settleSelect, broadcastSelect].forEach(sel => {
+          const opt = document.createElement('option');
+          opt.value = id;
+          opt.innerText = optText;
+          sel.appendChild(opt);
+        });
+
+        let matchTime = "Schedule Pending";
+        if (t.matchTime) {
+          const d = new Date(t.matchTime);
+          if (!isNaN(d.getTime())) {
+            matchTime = d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+          }
+        }
+
+        const isFull = bookedSlots >= maxSlots;
+
+        const card = document.createElement('div');
+        card.className = "flex items-center justify-between bg-black/40 border border-venom-border p-3 rounded-xl";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center gap-2">
+              <h4 class="font-gaming font-bold text-white text-sm">${t.title}</h4>
+              <span class="px-2 py-0.5 text-[9px] font-gaming font-bold rounded ${isFull ? 'bg-red-600/20 text-red-400 border border-red-500/40' : 'bg-venom-neon/15 text-venom-neon border border-venom-neon/40'}">
+                ${bookedSlots} / ${maxSlots} SLOTS ${isFull ? '(FULL)' : ''}
+              </span>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-1">
+              <span class="text-white font-bold">${t.map}</span> • <span class="text-venom-neon font-bold">${t.mode}</span> | Fee: ${t.entryFee} Pts | <span class="text-yellow-400 font-bold">${t.prizePool}</span>
+            </p>
+            <p class="text-[10px] text-gray-400 italic mt-0.5">${t.formatRules}</p>
+          </div>
+          <button onclick="deleteTournament('${id}')" class="px-3 py-1.5 bg-red-600/80 hover:bg-red-600 text-white font-gaming text-[10px] font-bold rounded-lg uppercase tracking-wider transition">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
+        `;
+        tourneyListEl.appendChild(card);
+      });
+    });
+
+    // Create Tournament (100% Manual Setup)
+    document.getElementById('create-match-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const dateVal = document.getElementById('match-date').value;
+        const timeVal = document.getElementById('match-time').value;
+        const mapName = document.getElementById('match-map').value.trim();
+        const formatRules = document.getElementById('match-format-rules').value.trim();
+        const prizePool = document.getElementById('match-prize-pool').value.trim();
+
+        if (!dateVal || !timeVal) return alert("Date aur Time select karein!");
+        if (!mapName) return alert("Kripya Map ka naam enter karein!");
+
+        const combinedDate = new Date(`${dateVal}T${timeVal}`);
+        const mode = document.getElementById('match-mode').value;
+        const maxSlots = Number(document.getElementById('match-max-slots').value) || 25;
+
+        const payload = {
+          title: document.getElementById('match-title').value,
+          map: mapName,
+          mode: mode,
+          formatRules: formatRules,
+          prizePool: prizePool,
+          maxSlots: maxSlots,
+          bookedSlots: 0,
+          matchTime: combinedDate.toISOString(),
+          entryFee: Number(document.getElementById('match-fee').value),
+          bannerUrl: document.getElementById('match-banner').value,
+          createdAt: new Date().toISOString()
+        };
+
+        await addDoc(collection(db, "tournaments"), payload);
+        document.getElementById('create-match-form').reset();
+        alert(`Tournament successfully published!`);
+      } catch (err) {
+        alert("Creation error: " + err.message);
+      }
+    });
+
+    window.deleteTournament = async function(id) {
+      if (confirm("Delete tournament?")) {
+        await deleteDoc(doc(db, "tournaments", id));
+        await deleteDoc(doc(db, "match_rooms", id));
+      }
+    };
+
+    // 4. PRE-MATCH VERIFICATION
+    window.loadMatchPlayersList = async function(matchId) {
+      const container = document.getElementById('players-table-container');
+      if (!matchId) {
+        container.innerHTML = '<p class="text-xs text-gray-500 text-center py-4">Upar se tournament select karein.</p>';
+        return;
+      }
+
+      container.innerHTML = '<p class="text-xs text-venom-neon text-center py-4">Loading registered lineups checklist...</p>';
+
+      const regQuery = query(collection(db, "registrations"), where("matchId", "==", matchId));
+      const snap = await getDocs(regQuery);
+
+      if (snap.empty) {
+        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-4">Abhi tak kisi player/team ne register nahi kiya hai.</p>';
+        return;
+      }
+
+      let html = `
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="border-b border-venom-border text-gray-400 font-gaming uppercase text-[10px]">
+              <th class="py-2 px-3">Slot #</th>
+              <th class="py-2 px-3">Team Name / Format</th>
+              <th class="py-2 px-3">Captain (Phone)</th>
+              <th class="py-2 px-3">Verified Lineup (IGN & UID)</th>
+              <th class="py-2 px-3">Status</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-venom-border/40 font-mono">
+      `;
+
+      let i = 1;
+      snap.forEach((d) => {
+        const p = d.data();
+        let lineup = `<span class="text-white font-bold">${p.p1Name}</span> <span class="text-yellow-400 font-bold">(${p.p1Uid})</span>`;
+        if (p.p2Name) lineup += `<br><span class="text-gray-300">P2: ${p.p2Name} (${p.p2Uid})</span>`;
+        if (p.p3Name) lineup += `<br><span class="text-gray-300">P3: ${p.p3Name} (${p.p3Uid})</span>`;
+        if (p.p4Name) lineup += `<br><span class="text-gray-300">P4: ${p.p4Name} (${p.p4Uid})</span>`;
+
+        html += `
+          <tr class="hover:bg-white/5 transition">
+            <td class="py-2.5 px-3 font-gaming text-yellow-400 font-bold">Slot ${i++}</td>
+            <td class="py-2.5 px-3 font-bold text-venom-neon font-body">${p.teamName || 'Solo'} (${p.mode})</td>
+            <td class="py-2.5 px-3 text-gray-300">${p.phone}</td>
+            <td class="py-2.5 px-3">${lineup}</td>
+            <td class="py-2.5 px-3"><span class="px-2 py-0.5 bg-venom-neon/10 text-venom-neon text-[9px] rounded font-bold uppercase">Slot Confirmed</span></td>
+          </tr>
+        `;
+      });
+
+      html += `</tbody></table>`;
+      container.innerHTML = html;
+    };
+
+    // 5. UNIVERSAL SETTLEMENT ENGINE
+    window.loadSettlementSheet = async function(matchId) {
+      const container = document.getElementById('settlement-sheet-container');
+      const indicator = document.getElementById('match-rule-indicator');
+      if (!matchId) {
+        container.innerHTML = "";
+        indicator.innerText = "Select match to view format and players";
+        return;
+      }
+
+      const match = liveTournamentsMap[matchId];
+      indicator.innerHTML = `<span class="text-yellow-400 font-bold">${match.title}</span>: ${match.formatRules}`;
+
+      container.innerHTML = '<p class="text-xs text-center text-gray-500 py-3">Player data load ho raha hai...</p>';
+
+      const regQuery = query(collection(db, "registrations"), where("matchId", "==", matchId));
+      const snap = await getDocs(regQuery);
+
+      if (snap.empty) {
+        container.innerHTML = '<p class="text-xs text-gray-400 text-center py-3">Koi registered player nahi mila.</p>';
+        return;
+      }
+
+      let players = [];
+      snap.forEach(d => players.push({ regId: d.id, ...d.data() }));
+
+      container.innerHTML = `
+        <div class="bg-black/50 border border-venom-border p-4 rounded-xl space-y-4">
+          <div class="flex justify-between items-center border-b border-venom-border pb-2">
+            <div>
+              <span class="font-gaming text-xs text-white uppercase font-bold">Manual Payout Distribution Sheet</span>
+              <p class="text-[10px] text-gray-400">Winners ke aage unka Rank/Tag aur Prize Points daalein. Baaki sabko 0 chhod dein.</p>
+            </div>
+          </div>
+
+          <div id="universal-payout-rows" class="space-y-2.5">
+            ${players.map((p, idx) => {
+              const displayName = p.mode === "Solo" ? `${p.p1Name} (UID: ${p.p1Uid})` : `Team: ${p.teamName} [Capt: ${p.p1Name}]`;
+              return `
+                <div class="payout-row flex flex-col md:flex-row md:items-center justify-between bg-black/40 border border-venom-border/70 p-3 rounded-xl gap-2.5"
+                     data-userid="${p.userId}" data-phone="${p.phone}" data-displayname="${p.teamName || p.p1Name}">
+                  <div class="flex items-center gap-3">
+                    <span class="w-6 text-center font-gaming text-gray-500 font-bold text-xs">${idx + 1}</span>
+                    <div>
+                      <span class="text-white font-bold block text-xs">${displayName}</span>
+                      <span class="text-[10px] text-gray-400">Captain Phone: ${p.phone}</span>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <input type="text" placeholder="Rank / Tag (e.g. #1, Top 5)" 
+                           class="rank-tag-input w-36 px-2.5 py-1.5 bg-black border border-venom-border rounded-lg text-white text-xs focus:border-yellow-400 font-gaming">
+                    
+                    <div class="flex items-center gap-1">
+                      <input type="number" min="0" placeholder="Prize (Pts)" value="0" 
+                             class="prize-points-input w-24 px-2.5 py-1.5 bg-black border border-venom-border rounded-lg text-center text-venom-neon font-bold text-xs focus:border-venom-neon">
+                      <span class="text-[10px] text-gray-400 font-gaming">Pts</span>
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <button onclick="executeUniversalPayout('${matchId}')" class="w-full py-3 bg-venom-neon text-black font-gaming font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-venom-green transition mt-3 shadow-[0_0_15px_rgba(57,255,20,0.2)]">
+            <i class="fa-solid fa-coins"></i> Confirm & Credit Custom Prizes to Captains' Wallets
+          </button>
+        </div>
+      `;
+    };
+
+    window.executeUniversalPayout = async function(matchId) {
+      const rows = Array.from(document.querySelectorAll('.payout-row'));
+      if (rows.length === 0) return;
+
+      const match = liveTournamentsMap[matchId];
+      if (!confirm(`Kya aap confirm karte hain? Jin players ke aage points bhare hain unke wallet me credit ho jayenge.`)) return;
+
+      try {
+        let declaredWinners = [];
+
+        for (const row of rows) {
+          const userId = row.dataset.userid;
+          const name = row.dataset.displayname;
+          const rankTag = row.querySelector('.rank-tag-input').value.trim() || 'Winner';
+          const points = Number(row.querySelector('.prize-points-input').value) || 0;
+
+          if (points > 0) {
+            declaredWinners.push({ name, rankTag, points });
+
+            await updateDoc(doc(db, "users", userId), {
+              points: increment(points)
+            });
+          }
+        }
+
+        if (declaredWinners.length === 0) {
+          alert("Aapne kisi bhi player ke aage prize points nahi bhare hain!");
+          return;
+        }
+
+        declaredWinners.sort((a, b) => b.points - a.points);
+
+        await addDoc(collection(db, "match_results"), {
+          title: match.title,
+          mapMode: `${match.map} • ${match.mode} (${match.formatRules})`,
+          winner: `${declaredWinners[0]?.name || 'Champion'} (${declaredWinners[0]?.rankTag})`,
+          winnerPrize: `+${declaredWinners[0]?.points || 0} Pts`,
+          runnerUp: declaredWinners[1] ? `${declaredWinners[1].name} (${declaredWinners[1].rankTag} - +${declaredWinners[1].points} Pts)` : 'N/A',
+          mvp: declaredWinners[2] ? `${declaredWinners[2].name} (${declaredWinners[2].rankTag} - +${declaredWinners[2].points} Pts)` : 'N/A',
+          allWinners: declaredWinners,
+          declaredAt: new Date().toISOString()
+        });
+
+        alert("Success! Winners ke wallet me prize points credit ho gaye aur Results tab publish ho gaya!");
+        document.getElementById('settlement-sheet-container').innerHTML = '<p class="text-xs text-venom-neon text-center py-4 font-bold">✓ Match Successfully Settled & Prizes Distributed!</p>';
+      } catch (err) {
+        alert("Payout error: " + err.message);
+      }
+    };
+
+    // Broadcast Credentials
+    document.getElementById('broadcast-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const matchId = document.getElementById('broadcast-match-select').value;
+      if (!matchId) return alert("Match select karein!");
+
+      await setDoc(doc(db, "match_rooms", matchId), {
+        roomId: document.getElementById('broadcast-room-id').value,
+        roomPassword: document.getElementById('broadcast-room-pass').value,
+        updatedAt: new Date().toISOString()
+      });
+      alert("Credentials broadcast ho gaye!");
+    });
+  </script>
+</body>
+</html>
