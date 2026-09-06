@@ -417,7 +417,7 @@
       if (modalPts) modalPts.innerText = val;
     }
 
-    // 1. DYNAMIC ALL TOURNAMENTS (RENDERS CUSTOM FORMAT RULES PROPERLY)
+    // 1. DYNAMIC ALL TOURNAMENTS
     const feedContainer = document.getElementById('tournaments-feed');
     const tourneyQuery = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
 
@@ -435,9 +435,7 @@
         const id = docSnap.id;
         allTournamentsCache[id] = t;
 
-        const isBooked = localStorage.getItem('venom_booked_' + id) === 'true';
         const formattedSchedule = formatSmartSchedule(t.matchTime);
-
         const maxSlots = t.maxSlots || 25;
         const bookedSlots = t.bookedSlots || 0;
         const isFull = bookedSlots >= maxSlots;
@@ -510,12 +508,8 @@
               </div>
             </div>
 
-            <!-- Action Button with Slot Full Protection -->
-            ${isBooked ? `
-              <button disabled class="w-full py-3 bg-zinc-800 text-gray-400 cursor-not-allowed border border-zinc-700 font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
-                Slot Confirmed (Check Upcoming) ✓
-              </button>
-            ` : isFull ? `
+            <!-- Action Button -->
+            ${isFull ? `
               <button disabled class="w-full py-3 bg-red-950/60 text-red-400 border border-red-800/80 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
                 <i class="fa-solid fa-lock"></i> MATCH FULL (NO SLOTS LEFT)
               </button>
@@ -532,7 +526,7 @@
       });
     });
 
-    // 2. REALTIME UPCOMING / MY MATCHES
+    // 2. REALTIME UPCOMING / MY MATCHES (FIXED)
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -564,8 +558,8 @@
         snap.forEach((docSnap) => {
           const reg = docSnap.data();
           const matchId = reg.matchId;
+          const regDocId = docSnap.id; // Unique Registration ID
           const formattedSchedule = formatSmartSchedule(reg.matchSchedule);
-          localStorage.setItem('venom_booked_' + matchId, 'true');
 
           const card = document.createElement('div');
           card.className = "bg-venom-card border border-venom-neon/50 rounded-2xl p-4 space-y-3 shadow-[0_0_15px_rgba(57,255,20,0.1)]";
@@ -599,7 +593,7 @@
               </div>
             </div>
 
-            <!-- Room Credentials Box -->
+            <!-- Room Credentials Box with Unique IDs -->
             <div class="bg-black/80 border border-venom-neon/40 rounded-xl p-3 space-y-2">
               <div class="flex justify-between items-center border-b border-venom-border/80 pb-1.5">
                 <span class="text-[10px] uppercase font-bold text-venom-neon flex items-center gap-1.5">
@@ -609,30 +603,30 @@
               </div>
               <div class="grid grid-cols-2 gap-2 text-xs">
                 <div class="bg-venom-card p-2 rounded-lg border border-venom-border flex items-center justify-between">
-                  <div><span class="text-[9px] text-gray-400 block uppercase">Room ID</span><span id="upcoming-room-id-${matchId}" class="font-gaming font-bold text-white text-sm">Waiting...</span></div>
-                  <button onclick="copyCreds('upcoming-room-id-${matchId}')" class="text-gray-400 hover:text-venom-neon p-1"><i class="fa-regular fa-copy"></i></button>
+                  <div><span class="text-[9px] text-gray-400 block uppercase">Room ID</span><span id="room-id-${regDocId}" class="font-gaming font-bold text-white text-sm">Waiting...</span></div>
+                  <button onclick="copyCreds('room-id-${regDocId}')" class="text-gray-400 hover:text-venom-neon p-1"><i class="fa-regular fa-copy"></i></button>
                 </div>
                 <div class="bg-venom-card p-2 rounded-lg border border-venom-border flex items-center justify-between">
-                  <div><span class="text-[9px] text-gray-400 block uppercase">Password</span><span id="upcoming-room-pass-${matchId}" class="font-gaming font-bold text-white text-sm">Waiting...</span></div>
-                  <button onclick="copyCreds('upcoming-room-pass-${matchId}')" class="text-gray-400 hover:text-venom-neon p-1"><i class="fa-regular fa-copy"></i></button>
+                  <div><span class="text-[9px] text-gray-400 block uppercase">Password</span><span id="room-pass-${regDocId}" class="font-gaming font-bold text-white text-sm">Waiting...</span></div>
+                  <button onclick="copyCreds('room-pass-${regDocId}')" class="text-gray-400 hover:text-venom-neon p-1"><i class="fa-regular fa-copy"></i></button>
                 </div>
               </div>
             </div>
           `;
 
           upcomingContainer.appendChild(card);
-          attachUpcomingRoomListener(matchId);
+          attachUpcomingRoomListener(matchId, regDocId);
         });
       });
     }
 
-    function attachUpcomingRoomListener(matchId) {
+    function attachUpcomingRoomListener(matchId, regDocId) {
       try {
         onSnapshot(doc(db, "match_rooms", matchId), (snap) => {
           if (snap.exists()) {
             const data = snap.data();
-            const idEl = document.getElementById(`upcoming-room-id-${matchId}`);
-            const passEl = document.getElementById(`upcoming-room-pass-${matchId}`);
+            const idEl = document.getElementById(`room-id-${regDocId}`);
+            const passEl = document.getElementById(`room-pass-${regDocId}`);
             if (idEl && data.roomId) idEl.innerText = data.roomId;
             if (passEl && data.roomPassword) passEl.innerText = data.roomPassword;
           }
@@ -932,7 +926,7 @@
       if (activeSection) activeSection.classList.remove('hidden');
       if (activeTab) {
         activeTab.classList.remove('border-venom-border', 'bg-black/40', 'text-gray-400');
-        activeTab.classList.add('border-venom-neon', 'bg-venom-neon/15', 'text-venom-neon');
+        activeTab.classList.add('border-venom-neon', 'bg-venom-neon/15', 'text-venon-neon');
       }
     };
 
