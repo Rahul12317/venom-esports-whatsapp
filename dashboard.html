@@ -100,6 +100,7 @@
             <span class="text-[10px] font-gaming text-gray-400 font-bold tracking-wider uppercase border border-white/10 bg-black/50 px-2 py-0.5 rounded-full">
               SEASON ACTIVE
             </span>
+
           </div>
 
           <h2 class="font-gaming text-2xl md:text-3xl font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-100 to-venom-neon drop-shadow-[0_0_15px_rgba(57,255,20,0.3)] leading-tight">
@@ -340,7 +341,7 @@
       runTransaction 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    const ADMIN_PHONE = "+919170980044";
+    const ADMIN_PHONE = "9170980044";
     let currentUser = null;
     let userDocRef = null;
     let currentBalance = 0;
@@ -384,8 +385,10 @@
       userDocRef = doc(db, "users", user.uid);
 
       const adminLink = document.getElementById('admin-bottom-link');
-      if (adminLink && user.phoneNumber === ADMIN_PHONE) {
-        adminLink.classList.remove('hidden');
+      if (adminLink) {
+        if (user.email === `${ADMIN_PHONE}@venom.esports.com` || user.phoneNumber === `+91${ADMIN_PHONE}` || user.phoneNumber === ADMIN_PHONE) {
+          adminLink.classList.remove('hidden');
+        }
       }
 
       onSnapshot(userDocRef, (userSnap) => {
@@ -854,7 +857,7 @@
       try {
         await addDoc(collection(db, "recharge_requests"), {
           userId: currentUser.uid,
-          userPhone: currentUser.phoneNumber || "+919170980044",
+          userPhone: currentUser.phoneNumber || ADMIN_PHONE,
           amount: amount,
           utr: utr,
           status: "pending",
@@ -896,7 +899,7 @@
 
         await addDoc(collection(db, "withdraw_requests"), {
           userId: currentUser.uid,
-          userPhone: currentUser.phoneNumber || "+919170980044",
+          userPhone: currentUser.phoneNumber || ADMIN_PHONE,
           upiId: upiId,
           points: points,
           amount: points,
