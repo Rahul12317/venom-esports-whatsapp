@@ -50,13 +50,20 @@
         <span class="font-gaming font-black text-lg tracking-wider text-white">VENOM</span>
       </div>
 
-      <!-- Wallet Pill -->
-      <div class="flex items-center gap-2 bg-venom-card border border-venom-neon/30 px-3 py-1.5 rounded-full shadow-[0_0_10px_rgba(57,255,20,0.15)]">
-        <i class="fa-solid fa-coins text-venom-neon text-sm"></i>
-        <span class="font-gaming font-bold text-sm text-white" id="user-points">--</span>
-        <span class="text-[10px] text-gray-400 font-bold uppercase">Pts</span>
-        <button onclick="openWalletModal()" class="ml-1 bg-venom-neon text-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-venom-green transition">
-          <i class="fa-solid fa-plus text-[10px]"></i>
+      <div class="flex items-center gap-2">
+        <!-- Wallet Pill -->
+        <div class="flex items-center gap-2 bg-venom-card border border-venom-neon/30 px-3 py-1.5 rounded-full shadow-[0_0_10px_rgba(57,255,20,0.15)]">
+          <i class="fa-solid fa-coins text-venom-neon text-sm"></i>
+          <span class="font-gaming font-bold text-sm text-white" id="user-points">--</span>
+          <span class="text-[10px] text-gray-400 font-bold uppercase">Pts</span>
+          <button onclick="openWalletModal()" class="ml-1 bg-venom-neon text-black rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold hover:bg-venom-green transition">
+            <i class="fa-solid fa-plus text-[10px]"></i>
+          </button>
+        </div>
+
+        <!-- Profile Button -->
+        <button onclick="openProfileModal()" class="bg-venom-card border border-venom-border hover:border-venom-neon text-venom-neon px-3 py-1.5 rounded-full text-xs font-gaming font-bold flex items-center gap-1.5 transition shadow-[0_0_10px_rgba(57,255,20,0.1)]">
+          <i class="fa-solid fa-user text-sm"></i>
         </button>
       </div>
     </div>
@@ -100,7 +107,6 @@
             <span class="text-[10px] font-gaming text-gray-400 font-bold tracking-wider uppercase border border-white/10 bg-black/50 px-2 py-0.5 rounded-full">
               SEASON ACTIVE
             </span>
-
           </div>
 
           <h2 class="font-gaming text-2xl md:text-3xl font-black tracking-wider uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-100 to-venom-neon drop-shadow-[0_0_15px_rgba(57,255,20,0.3)] leading-tight">
@@ -202,6 +208,42 @@
       </a>
     </div>
   </nav>
+
+  <!-- PROFILE MODAL -->
+  <div id="profile-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-venom-card border border-venom-border rounded-2xl p-6 space-y-5 shadow-2xl">
+      <div class="flex justify-between items-center pb-3 border-b border-venom-border">
+        <h3 class="font-gaming font-bold text-white text-base uppercase flex items-center gap-2">
+          <i class="fa-solid fa-user-shield text-venom-neon"></i> Warrior Profile
+        </h3>
+        <button onclick="closeProfileModal()" class="text-gray-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- User Details Info -->
+      <div class="space-y-3 text-xs">
+        <div class="bg-black/50 p-3 rounded-xl border border-venom-border">
+          <span class="text-[10px] text-gray-400 uppercase font-bold block">Registered Phone / ID</span>
+          <span id="profile-phone" class="font-mono font-bold text-white text-sm">Loading...</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-black/50 p-3 rounded-xl border border-venom-border text-center">
+            <span class="text-[10px] text-gray-400 uppercase font-bold block">Available Coins</span>
+            <span id="profile-points" class="font-gaming font-black text-venom-neon text-base">-- Pts</span>
+          </div>
+          <div class="bg-black/50 p-3 rounded-xl border border-venom-border text-center">
+            <span class="text-[10px] text-gray-400 uppercase font-bold block">Matches Played</span>
+            <span id="profile-matches-played" class="font-gaming font-black text-yellow-400 text-base">--</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Manual Logout Button -->
+      <button onclick="logoutUser()" class="w-full py-3 bg-red-600/90 hover:bg-red-600 text-white font-gaming font-bold text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(220,38,38,0.2)]">
+        <i class="fa-solid fa-right-from-bracket"></i> Logout Account
+      </button>
+    </div>
+  </div>
 
   <!-- DYNAMIC MODAL: LINEUP REGISTRATION -->
   <div id="join-modal" class="fixed inset-0 bg-black/85 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
@@ -326,7 +368,7 @@
   <!-- Realtime Unified Auth & Sync Engine -->
   <script type="module">
     import { auth, db } from "./firebase-config.js";
-    import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { 
       doc, 
       setDoc, 
@@ -346,6 +388,8 @@
     let currentUser = null;
     let userDocRef = null;
     let currentBalance = 0;
+    let userMatchesPlayedCount = 0;
+    let userPhoneData = "";
     let allTournamentsCache = {};
     let userBookedMatches = new Set(); // Track user's registered match IDs
 
@@ -385,6 +429,7 @@
 
       currentUser = user;
       userDocRef = doc(db, "users", user.uid);
+      userPhoneData = user.phoneNumber || ADMIN_PHONE;
 
       const adminLink = document.getElementById('admin-bottom-link');
       if (adminLink) {
@@ -395,16 +440,19 @@
 
       onSnapshot(userDocRef, (userSnap) => {
         if (userSnap.exists()) {
-          currentBalance = userSnap.data().points ?? 0;
+          const d = userSnap.data();
+          currentBalance = d.points ?? 0;
+          userMatchesPlayedCount = d.matchesPlayed ?? 0;
           updatePointsDisplay(currentBalance);
         } else {
           setDoc(userDocRef, {
-            phone: user.phoneNumber || ADMIN_PHONE,
+            phone: userPhoneData,
             points: 20,
             matchesPlayed: 0,
             joinedAt: new Date().toISOString()
           });
           currentBalance = 20;
+          userMatchesPlayedCount = 0;
           updatePointsDisplay(20);
         }
       });
@@ -426,7 +474,30 @@
       if (modalPts) modalPts.innerText = val;
     }
 
-    // 1. DYNAMIC ALL TOURNAMENTS
+    // Profile Modal & Manual Logout Control Functions
+    window.openProfileModal = function() {
+      document.getElementById('profile-phone').innerText = userPhoneData;
+      document.getElementById('profile-points').innerText = currentBalance + " Pts";
+      document.getElementById('profile-matches-played').innerText = userMatchesPlayedCount;
+      document.getElementById('profile-modal').classList.remove('hidden');
+    };
+
+    window.closeProfileModal = function() {
+      document.getElementById('profile-modal').classList.add('hidden');
+    };
+
+    window.logoutUser = async function() {
+      if (confirm("Kya aap account se logout karna chahte hain?")) {
+        try {
+          await signOut(auth);
+          window.location.href = "index.html";
+        } catch (err) {
+          alert("Logout error: " + err.message);
+        }
+      }
+    };
+
+    // 1. DYNAMIC ALL TOURNAMENTS WITH TIME-BASED MATCH STATUS
     const feedContainer = document.getElementById('tournaments-feed');
     let rawTournamentsSnapshot = [];
 
@@ -459,6 +530,23 @@
         const isFull = bookedSlots >= maxSlots;
         const percentage = Math.min(Math.round((bookedSlots / maxSlots) * 100), 100);
 
+        // Time-based Match Status Logic (Live Soon, In Progress, Completed)
+        const matchTimeMillis = new Date(t.matchTime).getTime();
+        const currentTimeMillis = Date.now();
+        const matchDurationMillis = 30 * 60 * 1000; // 30 minutes match duration
+        const matchEndTimeMillis = matchTimeMillis + matchDurationMillis;
+
+        let statusBadge = "";
+        if (isNaN(matchTimeMillis)) {
+          statusBadge = `<span class="bg-zinc-700 text-gray-300 font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Schedule Pending</span>`;
+        } else if (currentTimeMillis < matchTimeMillis) {
+          statusBadge = `<span class="bg-blue-600/90 text-white font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Live Soon</span>`;
+        } else if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= matchEndTimeMillis) {
+          statusBadge = `<span class="bg-venom-neon text-black font-gaming text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider animate-pulse">🔥 In Progress</span>`;
+        } else {
+          statusBadge = `<span class="bg-zinc-700 text-gray-300 font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Completed</span>`;
+        }
+
         const article = document.createElement('article');
         article.className = "bg-venom-card border border-venom-border rounded-2xl overflow-hidden shadow-xl hover:border-venom-neon/50 transition";
         article.innerHTML = `
@@ -466,11 +554,9 @@
             <img src="${t.bannerUrl}" alt="${t.title}" class="w-full h-full object-cover filter brightness-[0.65] contrast-125">
             <div class="absolute inset-0 bg-gradient-to-t from-venom-card via-black/60 to-transparent"></div>
             
-            <div class="absolute top-3 left-3">
-              <span class="${isFull ? 'bg-red-600 text-white' : 'bg-red-600/90 text-white'} font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow">
-                <span class="w-1.5 h-1.5 rounded-full ${isFull ? 'bg-white' : 'bg-white animate-ping'}"></span>
-                ${isFull ? 'SLOT FULL' : 'Live Soon'}
-              </span>
+            <div class="absolute top-3 left-3 flex items-center gap-1.5">
+              ${statusBadge}
+              ${isFull ? `<span class="bg-red-600 text-white font-gaming text-[10px] font-bold px-2 py-1 rounded-full uppercase">Full</span>` : ``}
             </div>
 
             <div class="absolute top-3 right-3 flex items-center gap-1.5">
@@ -526,7 +612,7 @@
               </div>
             </div>
 
-            <!-- Action Button with Already Booked Protection -->
+            <!-- Action Button with Duplicate & Full Protection -->
             ${isBooked ? `
               <button disabled class="w-full py-3 bg-zinc-800 text-venom-neon border border-venom-neon/40 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
                 <i class="fa-solid fa-check-circle"></i> Slot Confirmed (Check Upcoming) ✓
@@ -658,7 +744,7 @@
       }
     }
 
-    // Modal Trigger
+    // Modal Trigger with Strict Duplicate Prevention
     window.initiateBattleJoin = function(matchId, title, fee, matchTime, map, mode) {
       if (userBookedMatches.has(matchId)) {
         alert("Aap is match ke liye pehle hi register kar chuke hain!");
@@ -733,7 +819,7 @@
       document.getElementById('join-modal').classList.add('hidden');
     };
 
-    // Confirm Join Form Submit (WITH STRICT DUPLICATE PREVENTION & TRANSACTION)
+    // Confirm Join Form Submit with Firestore Duplicate Check
     document.getElementById('join-match-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const matchId = document.getElementById('modal-match-id').value;
@@ -757,7 +843,7 @@
 
       try {
         if (currentUser && userDocRef) {
-          // Double check Firestore if registration already exists
+          // Strict duplicate registration query check
           const existingQuery = query(
             collection(db, "registrations"), 
             where("userId", "==", currentUser.uid), 
@@ -795,7 +881,7 @@
 
           await addDoc(collection(db, "registrations"), {
             userId: currentUser.uid,
-            phone: currentUser.phoneNumber || ADMIN_PHONE,
+            phone: userPhoneData,
             teamName: teamName,
             p1Name: p1Name,
             p1Uid: p1Uid,
@@ -890,7 +976,7 @@
       try {
         await addDoc(collection(db, "recharge_requests"), {
           userId: currentUser.uid,
-          userPhone: currentUser.phoneNumber || ADMIN_PHONE,
+          userPhone: userPhoneData,
           amount: amount,
           utr: utr,
           status: "pending",
@@ -932,7 +1018,7 @@
 
         await addDoc(collection(db, "withdraw_requests"), {
           userId: currentUser.uid,
-          userPhone: currentUser.phoneNumber || ADMIN_PHONE,
+          userPhone: userPhoneData,
           upiId: upiId,
           points: points,
           amount: points,
