@@ -338,7 +338,8 @@
       query, 
       orderBy, 
       where,
-      runTransaction 
+      runTransaction,
+      getDocs 
     } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
     const ADMIN_PHONE = "9170980044";
@@ -346,6 +347,7 @@
     let userDocRef = null;
     let currentBalance = 0;
     let allTournamentsCache = {};
+    let userBookedMatches = new Set(); // Track user's registered match IDs
 
     function formatSmartSchedule(isoDateTimeStr) {
       if (!isoDateTimeStr) return "Schedule Pending";
@@ -407,6 +409,13 @@
         }
       });
 
+      // Track user registrations to lock already joined buttons
+      onSnapshot(query(collection(db, "registrations"), where("userId", "==", user.uid)), (snap) => {
+        userBookedMatches.clear();
+        snap.forEach(d => userBookedMatches.add(d.data().matchId));
+        renderTournamentsFeed();
+      });
+
       listenToMyUpcomingMatches(user.uid);
     });
 
@@ -419,22 +428,31 @@
 
     // 1. DYNAMIC ALL TOURNAMENTS
     const feedContainer = document.getElementById('tournaments-feed');
-    const tourneyQuery = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
+    let rawTournamentsSnapshot = [];
 
+    const tourneyQuery = query(collection(db, "tournaments"), orderBy("createdAt", "desc"));
     onSnapshot(tourneyQuery, (snapshot) => {
+      rawTournamentsSnapshot = [];
+      snapshot.forEach(docSnap => {
+        rawTournamentsSnapshot.push({ id: docSnap.id, ...docSnap.data() });
+      });
+      renderTournamentsFeed();
+    });
+
+    function renderTournamentsFeed() {
       feedContainer.innerHTML = "";
       allTournamentsCache = {};
 
-      if (snapshot.empty) {
+      if (rawTournamentsSnapshot.length === 0) {
         feedContainer.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Filhal koi match active nahi hai.</p>';
         return;
       }
 
-      snapshot.forEach((docSnap) => {
-        const t = docSnap.data();
-        const id = docSnap.id;
+      rawTournamentsSnapshot.forEach((t) => {
+        const id = t.id;
         allTournamentsCache[id] = t;
 
+        const isBooked = userBookedMatches.has(id);
         const formattedSchedule = formatSmartSchedule(t.matchTime);
         const maxSlots = t.maxSlots || 25;
         const bookedSlots = t.bookedSlots || 0;
@@ -446,7 +464,7 @@
         article.innerHTML = `
           <div class="relative h-36 w-full overflow-hidden">
             <img src="${t.bannerUrl}" alt="${t.title}" class="w-full h-full object-cover filter brightness-[0.65] contrast-125">
-            <div class="absolute inset-0 bg-gradient-to-t from-venom-card via-black/40 to-transparent"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-venom-card via-black/60 to-transparent"></div>
             
             <div class="absolute top-3 left-3">
               <span class="${isFull ? 'bg-red-600 text-white' : 'bg-red-600/90 text-white'} font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 shadow">
@@ -508,8 +526,12 @@
               </div>
             </div>
 
-            <!-- Action Button -->
-            ${isFull ? `
+            <!-- Action Button with Already Booked Protection -->
+            ${isBooked ? `
+              <button disabled class="w-full py-3 bg-zinc-800 text-venom-neon border border-venom-neon/40 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
+                <i class="fa-solid fa-check-circle"></i> Slot Confirmed (Check Upcoming) ✓
+              </button>
+            ` : isFull ? `
               <button disabled class="w-full py-3 bg-red-950/60 text-red-400 border border-red-800/80 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
                 <i class="fa-solid fa-lock"></i> MATCH FULL (NO SLOTS LEFT)
               </button>
@@ -524,9 +546,9 @@
 
         feedContainer.appendChild(article);
       });
-    });
+    }
 
-    // 2. REALTIME UPCOMING / MY MATCHES (FIXED)
+    // 2. REALTIME UPCOMING / MY MATCHES
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -558,7 +580,7 @@
         snap.forEach((docSnap) => {
           const reg = docSnap.data();
           const matchId = reg.matchId;
-          const regDocId = docSnap.id; // Unique Registration ID
+          const regDocId = docSnap.id;
           const formattedSchedule = formatSmartSchedule(reg.matchSchedule);
 
           const card = document.createElement('div');
@@ -593,7 +615,7 @@
               </div>
             </div>
 
-            <!-- Room Credentials Box with Unique IDs -->
+            <!-- Room Credentials Box -->
             <div class="bg-black/80 border border-venom-neon/40 rounded-xl p-3 space-y-2">
               <div class="flex justify-between items-center border-b border-venom-border/80 pb-1.5">
                 <span class="text-[10px] uppercase font-bold text-venom-neon flex items-center gap-1.5">
@@ -638,6 +660,11 @@
 
     // Modal Trigger
     window.initiateBattleJoin = function(matchId, title, fee, matchTime, map, mode) {
+      if (userBookedMatches.has(matchId)) {
+        alert("Aap is match ke liye pehle hi register kar chuke hain!");
+        return;
+      }
+
       const match = allTournamentsCache[matchId];
       if (match && (match.bookedSlots || 0) >= (match.maxSlots || 25)) {
         alert("Yeh match full ho chuka hai! Koi slot khali nahi hai.");
@@ -706,7 +733,7 @@
       document.getElementById('join-modal').classList.add('hidden');
     };
 
-    // Confirm Join Form Submit
+    // Confirm Join Form Submit (WITH STRICT DUPLICATE PREVENTION & TRANSACTION)
     document.getElementById('join-match-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const matchId = document.getElementById('modal-match-id').value;
@@ -730,6 +757,18 @@
 
       try {
         if (currentUser && userDocRef) {
+          // Double check Firestore if registration already exists
+          const existingQuery = query(
+            collection(db, "registrations"), 
+            where("userId", "==", currentUser.uid), 
+            where("matchId", "==", matchId)
+          );
+          const existingSnap = await getDocs(existingQuery);
+          if (!existingSnap.empty) {
+            alert("Aap is match ke liye pehle hi register kar chuke hain!");
+            return;
+          }
+
           const matchDocRef = doc(db, "tournaments", matchId);
 
           await runTransaction(db, async (transaction) => {
@@ -926,7 +965,7 @@
       if (activeSection) activeSection.classList.remove('hidden');
       if (activeTab) {
         activeTab.classList.remove('border-venom-border', 'bg-black/40', 'text-gray-400');
-        activeTab.classList.add('border-venom-neon', 'bg-venom-neon/15', 'text-venon-neon');
+        activeTab.classList.add('border-venom-neon', 'bg-venom-neon/15', 'text-venom-neon');
       }
     };
 
