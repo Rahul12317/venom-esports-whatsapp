@@ -175,7 +175,7 @@
           document.getElementById('phone-section').classList.add('hidden');
           document.getElementById('otp-section').classList.remove('hidden');
         } else {
-          alert('Server Error: ' + data.message);
+          alert('Server Error: ' + (data.message || 'Unknown error'));
         }
       } catch (error) {
         alert('Network Error while sending OTP: ' + error.message);
