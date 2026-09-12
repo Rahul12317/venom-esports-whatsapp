@@ -429,7 +429,13 @@
 
       currentUser = user;
       userDocRef = doc(db, "users", user.uid);
-      userPhoneData = user.phoneNumber || ADMIN_PHONE;
+      
+      // FIXED: Extract real user phone number from email or authentication data instead of defaulting to admin
+      if (user.email && user.email.includes('@venom.esports.com')) {
+        userPhoneData = user.email.split('@')[0];
+      } else {
+        userPhoneData = user.phoneNumber || ADMIN_PHONE;
+      }
 
       const adminLink = document.getElementById('admin-bottom-link');
       if (adminLink) {
