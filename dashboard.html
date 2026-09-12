@@ -726,7 +726,7 @@
       });
     }
 
-    // 2. UPCOMING TAB (Hides match when it starts - moves to results/in-progress)
+    // 2. UPCOMING TAB (Hides match when it starts)
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -774,7 +774,6 @@
           const matchTimeMillis = new Date(reg.matchSchedule).getTime();
           const currentTimeMillis = Date.now();
 
-          // RULE: Agar match start ho chuka hai, toh Upcoming tab se hata do
           if (!isNaN(matchTimeMillis) && currentTimeMillis >= matchTimeMillis) {
             return;
           }
@@ -1053,7 +1052,7 @@
       }
     });
 
-    // 3. RESULTS TAB (Shows In Progress matches + declared results with 24hr expiry)
+    // 3. RESULTS TAB (In Progress matches + Completed matches with 'Check Result' toggle & 24hr expiry)
     const resultsContainer = document.getElementById('results-feed');
 
     function renderResultsAndInProgress() {
@@ -1068,77 +1067,106 @@
           let resultsHTML = "";
           let activeItemsCount = 0;
 
-          // 1. Show "In Progress" matches in Results tab
-          tourneySnap.forEach((docSnap) => {
-            const t = docSnap.data();
-            const matchTimeMillis = new Date(t.matchTime).getTime();
-
-            if (!isNaN(matchTimeMillis)) {
-              if (currentTime >= matchTimeMillis && currentTime <= (matchTimeMillis + matchDurationMillis)) {
-                activeItemsCount++;
-                resultsHTML += `
-                  <div class="bg-venom-card border border-venom-neon p-4 rounded-2xl space-y-3 shadow-lg mb-4">
-                    <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
-                      <div>
-                        <h4 class="font-gaming text-sm font-bold text-white uppercase">${t.title}</h4>
-                        <p class="text-[10px] text-venom-neon font-bold animate-pulse">🔥 MATCH IN PROGRESS (Lobby Live)</p>
-                      </div>
-                      <span class="text-[10px] bg-venom-neon/20 text-venom-neon border border-venom-neon/40 px-2 py-0.5 rounded font-bold uppercase">LIVE</span>
-                    </div>
-                    <div class="text-xs text-gray-300 flex justify-between">
-                      <span>Map: ${t.map} • Mode: ${t.mode}</span>
-                      <span class="text-yellow-400 font-bold">Prize: ${t.prizePool}</span>
-                    </div>
-                  </div>
-                `;
-              }
+          // Map results data by matchId / title for quick lookup
+          const resultsMap = {};
+          resultSnap.forEach(docSnap => {
+            const res = docSnap.data();
+            resultsMap[docSnap.id] = res;
+            if (res.matchId) {
+              resultsMap[res.matchId] = res;
             }
           });
 
-          // 2. Show Declared Results (within 24 hours)
-          resultSnap.forEach((docSnap) => {
-            const res = docSnap.data();
-            const declaredAtMillis = new Date(res.declaredAt).getTime();
+          tourneySnap.forEach((docSnap) => {
+            const tId = docSnap.id;
+            const t = docSnap.data();
+            const matchTimeMillis = new Date(t.matchTime).getTime();
 
-            if (!isNaN(declaredAtMillis) && (currentTime - declaredAtMillis) > twentyFourHours) {
-              return;
-            }
+            if (isNaN(matchTimeMillis)) return;
 
-            activeItemsCount++;
-            const declaredDate = new Date(res.declaredAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+            const matchEndTimeMillis = matchTimeMillis + matchDurationMillis;
+            const hasResult = resultsMap[tId] || resultsMap[t.title];
 
-            resultsHTML += `
-              <div class="bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg mb-4">
-                <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
-                  <div>
-                    <h4 class="font-gaming text-sm font-bold text-white uppercase">${res.title}</h4>
-                    <p class="text-[10px] text-gray-400">${res.mapMode} • Completed on ${declaredDate}</p>
-                  </div>
-                  <span class="text-[10px] bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded font-bold uppercase">Official</span>
-                </div>
-
-                <div class="space-y-2 text-xs">
-                  ${res.allWinners && res.allWinners.length > 0 ? `
-                    <div class="space-y-1.5 font-mono text-xs">
-                      ${res.allWinners.map((w, i) => `
-                        <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border ${i === 0 ? 'border-yellow-400/50' : 'border-venom-border'}">
-                          <div class="flex items-center gap-2">
-                            <span class="font-gaming font-bold ${i === 0 ? 'text-yellow-400 font-black' : 'text-gray-400'}">${w.rankTag}</span>
-                            <span class="text-white font-bold">${w.name}</span>
-                          </div>
-                          <span class="font-gaming text-venom-neon font-black">+${w.points} Pts</span>
-                        </div>
-                      `).join('')}
+            // 1. Show "In Progress" matches in Results tab
+            if (currentTime >= matchTimeMillis && currentTime <= matchEndTimeMillis) {
+              activeItemsCount++;
+              resultsHTML += `
+                <div class="bg-venom-card border border-venom-neon p-4 rounded-2xl space-y-3 shadow-lg mb-4">
+                  <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
+                    <div>
+                      <h4 class="font-gaming text-sm font-bold text-white uppercase">${t.title}</h4>
+                      <p class="text-[10px] text-venom-neon font-bold animate-pulse">🔥 MATCH IN PROGRESS (Lobby Live)</p>
                     </div>
+                    <span class="text-[10px] bg-venom-neon/20 text-venom-neon border border-venom-neon/40 px-2 py-0.5 rounded font-bold uppercase">LIVE</span>
+                  </div>
+                  <div class="text-xs text-gray-300 flex justify-between">
+                    <span>Map: ${t.map} • Mode: ${t.mode}</span>
+                    <span class="text-yellow-400 font-bold">Prize: ${t.prizePool}</span>
+                  </div>
+                </div>
+              `;
+            }
+            // 2. Show Completed Matches (With "Completed" badge or "Check Result" button if result is uploaded)
+            else if (currentTime > matchEndTimeMillis) {
+              // If result is uploaded and 24 hours have passed, hide it entirely
+              if (hasResult) {
+                const declaredAtMillis = new Date(hasResult.declaredAt).getTime();
+                if (!isNaN(declaredAtMillis) && (currentTime - declaredAtMillis) > twentyFourHours) {
+                  return;
+                }
+              }
+
+              activeItemsCount++;
+              const isCompletedWithoutResult = !hasResult;
+
+              resultsHTML += `
+                <div class="bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg mb-4">
+                  <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
+                    <div>
+                      <h4 class="font-gaming text-sm font-bold text-white uppercase">${t.title}</h4>
+                      <p class="text-[10px] text-gray-400">${t.map} • ${t.mode}</p>
+                    </div>
+                    ${isCompletedWithoutResult ? `
+                      <span class="text-[10px] bg-zinc-700 text-gray-300 px-2.5 py-1 rounded-full font-bold uppercase tracking-wider">Completed</span>
+                    ` : `
+                      <button onclick="toggleResultDropdown('${tId}')" class="text-[10px] bg-venom-neon text-black hover:bg-venom-green px-3 py-1.5 rounded-xl font-gaming font-bold uppercase tracking-wider transition shadow-[0_0_10px_rgba(57,255,20,0.3)]">
+                        Check Result <i class="fa-solid fa-chevron-down ml-1"></i>
+                      </button>
+                    `}
+                  </div>
+
+                  ${isCompletedWithoutResult ? `
+                    <p class="text-xs text-gray-400 italic py-1">Match complete ho chuka hai. Admin jald hi result upload karenge.</p>
                   ` : `
-                    <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border border-venom-neon/30">
-                      <span class="text-white font-bold">${res.winner}</span>
-                      <span class="font-gaming text-venom-neon font-black">${res.winnerPrize}</span>
+                    <!-- Hidden Result Dropdown Content (Expands on clicking Check Result) -->
+                    <div id="result-dropdown-${tId}" class="hidden space-y-2 pt-2 border-t border-venom-border text-xs">
+                      <div class="flex justify-between items-center pb-1">
+                        <span class="text-[10px] text-yellow-400 uppercase font-bold">Official Match Records</span>
+                        <span class="text-[10px] text-gray-400">Prize Pool: ${t.prizePool}</span>
+                      </div>
+                      ${hasResult.allWinners && hasResult.allWinners.length > 0 ? `
+                        <div class="space-y-1.5 font-mono text-xs">
+                          ${hasResult.allWinners.map((w, i) => `
+                            <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border ${i === 0 ? 'border-yellow-400/50' : 'border-venom-border'}">
+                              <div class="flex items-center gap-2">
+                                <span class="font-gaming font-bold ${i === 0 ? 'text-yellow-400 font-black' : 'text-gray-400'}">${w.rankTag}</span>
+                                <span class="text-white font-bold">${w.name}</span>
+                              </div>
+                              <span class="font-gaming text-venom-neon font-black">+${w.points} Pts</span>
+                            </div>
+                          `).join('')}
+                        </div>
+                      ` : `
+                        <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border border-venom-neon/30">
+                          <span class="text-white font-bold">${hasResult.winner || 'Winner'}</span>
+                          <span class="font-gaming text-venom-neon font-black">${hasResult.winnerPrize || ''}</span>
+                        </div>
+                      `}
                     </div>
                   `}
                 </div>
-              </div>
-            `;
+              `;
+            }
           });
 
           if (activeItemsCount === 0) {
@@ -1149,6 +1177,14 @@
         });
       });
     }
+
+    // Toggle dropdown function for "Check Result" click action
+    window.toggleResultDropdown = function(matchId) {
+      const dropdown = document.getElementById(`result-dropdown-${matchId}`);
+      if (dropdown) {
+        dropdown.classList.toggle('hidden');
+      }
+    };
 
     renderResultsAndInProgress();
 
