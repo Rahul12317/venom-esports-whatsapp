@@ -209,7 +209,7 @@
     </div>
   </nav>
 
-  <!-- PROFILE MODAL (With Completed Match History & Remove Option) -->
+  <!-- PROFILE MODAL (With Completed Match History & Delete Option) -->
   <div id="profile-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="w-full max-w-sm max-h-[90vh] overflow-y-auto no-scrollbar bg-venom-card border border-venom-border rounded-2xl p-6 space-y-5 shadow-2xl">
       <div class="flex justify-between items-center pb-3 border-b border-venom-border">
@@ -490,14 +490,13 @@
       if (modalPts) modalPts.innerText = val;
     }
 
-    // Profile Modal Open & Load History (Only Completed/Result Declared matches)
+    // Profile Modal Open & Load History (All registered matches for history delete system)
     window.openProfileModal = async function() {
       document.getElementById('profile-phone').innerText = userPhoneData;
       document.getElementById('profile-points').innerText = currentBalance + " Pts";
       document.getElementById('profile-matches-played').innerText = userMatchesPlayedCount;
       document.getElementById('profile-modal').classList.remove('hidden');
 
-      // Load Completed Match History into Profile
       await loadProfileCompletedHistory();
     };
 
@@ -517,45 +516,36 @@
         }
 
         let completedCardsHTML = "";
-        let foundCompleted = false;
+        let foundHistory = false;
 
         for (const regDoc of regSnap.docs) {
           const reg = regDoc.data();
           const regDocId = regDoc.id;
-          const matchId = reg.matchId;
+          
+          foundHistory = true;
+          const declaredDate = new Date(reg.matchSchedule || reg.bookedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
-          // Check if result is declared in match_results collection for this matchId
-          const resultRef = doc(db, "match_results", matchId);
-          const resultSnap = await getDoc(resultRef);
-
-          // Only show history if result is declared (completed)
-          if (resultSnap.exists()) {
-            foundCompleted = true;
-            const resData = resultSnap.data();
-            const declaredDate = new Date(resData.declaredAt || reg.bookedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-
-            completedCardsHTML += `
-              <div class="bg-black/60 border border-yellow-400/40 p-2.5 rounded-xl space-y-1.5 text-[11px]">
-                <div class="flex justify-between items-center">
-                  <span class="font-gaming font-bold text-white uppercase">${reg.matchName}</span>
-                  <span class="text-[9px] bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded uppercase font-bold">Completed</span>
-                </div>
-                <div class="text-gray-400 flex justify-between">
-                  <span>${reg.map || 'Custom'} • ${reg.mode}</span>
-                  <span>${declaredDate}</span>
-                </div>
-                <div class="pt-1 flex justify-end">
-                  <button onclick="deleteMyHistory('${regDocId}')" class="text-[10px] bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2 py-0.5 rounded border border-red-500/30 transition">
-                    <i class="fa-solid fa-trash mr-1"></i> Remove History
-                  </button>
-                </div>
+          completedCardsHTML += `
+            <div class="bg-black/60 border border-venom-border p-2.5 rounded-xl space-y-1.5 text-[11px] mb-2">
+              <div class="flex justify-between items-center">
+                <span class="font-gaming font-bold text-white uppercase">${reg.matchName}</span>
+                <span class="text-[9px] bg-venom-neon/20 text-venom-neon px-1.5 py-0.5 rounded uppercase font-bold">${reg.mode}</span>
               </div>
-            `;
-          }
+              <div class="text-gray-400 flex justify-between">
+                <span>${reg.map || 'Custom'}</span>
+                <span>${declaredDate}</span>
+              </div>
+              <div class="pt-1 flex justify-end">
+                <button onclick="deleteMyHistory('${regDocId}')" class="text-[10px] bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white px-2 py-0.5 rounded border border-red-500/30 transition">
+                  <i class="fa-solid fa-trash mr-1"></i> Delete History
+                </button>
+              </div>
+            </div>
+          `;
         }
 
-        if (!foundCompleted) {
-          historyFeed.innerHTML = '<p class="text-[11px] text-gray-500 text-center py-3">No completed matches with declared results yet.</p>';
+        if (!foundHistory) {
+          historyFeed.innerHTML = '<p class="text-[11px] text-gray-500 text-center py-3">No match history found.</p>';
         } else {
           historyFeed.innerHTML = completedCardsHTML;
         }
@@ -593,6 +583,7 @@
       renderTournamentsFeed();
     });
 
+    // 1. FRONT PAGE / ALL TAB FEED (Hides match completely once it is completed)
     function renderTournamentsFeed() {
       feedContainer.innerHTML = "";
       allTournamentsCache = {};
@@ -602,7 +593,17 @@
         return;
       }
 
+      const currentTimeMillis = Date.now();
+      const matchDurationMillis = 30 * 60 * 1000; // 30 mins duration
+
       rawTournamentsSnapshot.forEach((t) => {
+        const matchTimeMillis = new Date(t.matchTime).getTime();
+        
+        // RULE: Agar match ka waqt nikal chuka hai (completed), toh front page (All tab) se hata do
+        if (!isNaN(matchTimeMillis) && currentTimeMillis > (matchTimeMillis + matchDurationMillis)) {
+          return;
+        }
+
         const id = t.id;
         allTournamentsCache[id] = t;
 
@@ -613,24 +614,17 @@
         const isFull = bookedSlots >= maxSlots;
         const percentage = Math.min(Math.round((bookedSlots / maxSlots) * 100), 100);
 
-        const matchTimeMillis = new Date(t.matchTime).getTime();
-        const currentTimeMillis = Date.now();
-        const matchDurationMillis = 30 * 60 * 1000;
-        const matchEndTimeMillis = matchTimeMillis + matchDurationMillis;
-
         let statusBadge = "";
         if (isNaN(matchTimeMillis)) {
           statusBadge = `<span class="bg-zinc-700 text-gray-300 font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Schedule Pending</span>`;
         } else if (currentTimeMillis < matchTimeMillis) {
           statusBadge = `<span class="bg-blue-600/90 text-white font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Live Soon</span>`;
-        } else if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= matchEndTimeMillis) {
+        } else if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= (matchTimeMillis + matchDurationMillis)) {
           statusBadge = `<span class="bg-venom-neon text-black font-gaming text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider animate-pulse">🔥 In Progress</span>`;
-        } else {
-          statusBadge = `<span class="bg-zinc-700 text-gray-300 font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Completed</span>`;
         }
 
         const article = document.createElement('article');
-        article.className = "bg-venom-card border border-venom-border rounded-2xl overflow-hidden shadow-xl hover:border-venom-neon/50 transition";
+        article.className = "bg-venom-card border border-venom-border rounded-2xl overflow-hidden shadow-xl hover:border-venom-neon/50 transition mb-4";
         article.innerHTML = `
           <div class="relative h-36 w-full overflow-hidden">
             <img src="${t.bannerUrl}" alt="${t.title}" class="w-full h-full object-cover filter brightness-[0.65] contrast-125">
@@ -713,6 +707,7 @@
       });
     }
 
+    // 2. UPCOMING TAB (Realtime: Upcoming -> In Progress -> Completed)
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -749,19 +744,19 @@
 
           const matchTimeMillis = new Date(reg.matchSchedule).getTime();
           const currentTimeMillis = Date.now();
-          const matchDurationMillis = 30 * 60 * 1000; // 30 mins
+          const matchDurationMillis = 30 * 60 * 1000; // 30 mins duration
 
           let matchStateBadge = "Upcoming";
           if (!isNaN(matchTimeMillis)) {
             if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= (matchTimeMillis + matchDurationMillis)) {
-              matchStateBadge = "🔥 Ongoing";
+              matchStateBadge = "🔥 In Progress";
             } else if (currentTimeMillis > (matchTimeMillis + matchDurationMillis)) {
               matchStateBadge = "Completed";
             }
           }
 
           const card = document.createElement('div');
-          card.className = "bg-venom-card border border-venom-neon/50 rounded-2xl p-4 space-y-3 shadow-[0_0_15px_rgba(57,255,20,0.1)]";
+          card.className = "bg-venom-card border border-venom-neon/50 rounded-2xl p-4 space-y-3 shadow-[0_0_15px_rgba(57,255,20,0.1)] mb-4";
           
           let lineupHTML = `<span class="text-white font-bold">${reg.p1Name} (UID: ${reg.p1Uid})</span>`;
           if (reg.mode === "Duo") {
@@ -818,13 +813,12 @@
       });
     }
 
-    // Delete history function from Profile Modal
     window.deleteMyHistory = async function(regDocId) {
-      if (confirm("Kya aap is completed match history ko apni profile se hatana chahte hain?")) {
+      if (confirm("Kya aap is match history ko apni profile se delete karna chahte hain?")) {
         try {
           await deleteDoc(doc(db, "registrations", regDocId));
-          alert("Match history successfully remove ho gayi!");
-          loadProfileCompletedHistory(); // Refresh history feed in profile modal
+          alert("Match history successfully delete ho gayi!");
+          loadProfileCompletedHistory();
         } catch (err) {
           alert("Error deleting history: " + err.message);
         }
@@ -1022,6 +1016,7 @@
       }
     });
 
+    // 3. RESULTS FEED (Removes results automatically after 24 hours)
     const resultsContainer = document.getElementById('results-feed');
     const resultsQuery = query(collection(db, "match_results"), orderBy("declaredAt", "desc"));
 
@@ -1032,12 +1027,24 @@
         return;
       }
 
+      const currentTime = Date.now();
+      const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours expiry limit
+      let visibleResultsCount = 0;
+
       snapshot.forEach((docSnap) => {
         const res = docSnap.data();
+        const declaredAtMillis = new Date(res.declaredAt).getTime();
+
+        // RULE: Agar result declare hue 24 ghante se zyada ho gaye hain, toh results feed se hata do
+        if (!isNaN(declaredAtMillis) && (currentTime - declaredAtMillis) > twentyFourHours) {
+          return;
+        }
+
+        visibleResultsCount++;
         const declaredDate = new Date(res.declaredAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
         const card = document.createElement('div');
-        card.className = "bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg";
+        card.className = "bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg mb-4";
         card.innerHTML = `
           <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
             <div>
@@ -1070,6 +1077,10 @@
         `;
         resultsContainer.appendChild(card);
       });
+
+      if (visibleResultsCount === 0) {
+        resultsContainer.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Filhal koi active result available nahi hai.</p>';
+      }
     });
 
     document.getElementById('recharge-request-form')?.addEventListener('submit', async (e) => {
