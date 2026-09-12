@@ -279,28 +279,28 @@
         <div class="bg-black/40 p-3 rounded-xl border border-venom-border space-y-2">
           <span class="text-venom-neon font-gaming font-bold text-[10px] uppercase block">Player 1 (Captain / Booked By)</span>
           <input type="text" id="reg-p1-name" placeholder="Player 1 BGMI In-Game Name (IGN)" required class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon">
-          <input type="number" id="reg-p1-uid" placeholder="Player 1 Character UID" required class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
+          <input type="text" inputmode="numeric" maxlength="12" id="reg-p1-uid" placeholder="Player 1 Character UID (min 8 digits)" required class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
         </div>
 
         <!-- PLAYER 2 (Duo & Squad) -->
         <div id="field-player-2" class="hidden bg-black/40 p-3 rounded-xl border border-venom-border space-y-2">
           <span class="text-gray-300 font-gaming font-bold text-[10px] uppercase block">Player 2 (Teammate)</span>
           <input type="text" id="reg-p2-name" placeholder="Player 2 BGMI In-Game Name (IGN)" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon">
-          <input type="number" id="reg-p2-uid" placeholder="Player 2 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
+          <input type="text" inputmode="numeric" maxlength="12" id="reg-p2-uid" placeholder="Player 2 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
         </div>
 
         <!-- PLAYER 3 (Squad only) -->
         <div id="field-player-3" class="hidden bg-black/40 p-3 rounded-xl border border-venom-border space-y-2">
           <span class="text-gray-300 font-gaming font-bold text-[10px] uppercase block">Player 3 (Teammate)</span>
           <input type="text" id="reg-p3-name" placeholder="Player 3 BGMI In-Game Name (IGN)" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon">
-          <input type="number" id="reg-p3-uid" placeholder="Player 3 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
+          <input type="text" inputmode="numeric" maxlength="12" id="reg-p3-uid" placeholder="Player 3 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
         </div>
 
         <!-- PLAYER 4 (Squad only) -->
         <div id="field-player-4" class="hidden bg-black/40 p-3 rounded-xl border border-venom-border space-y-2">
           <span class="text-gray-300 font-gaming font-bold text-[10px] uppercase block">Player 4 (Teammate)</span>
           <input type="text" id="reg-p4-name" placeholder="Player 4 BGMI In-Game Name (IGN)" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon">
-          <input type="number" id="reg-p4-uid" placeholder="Player 4 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
+          <input type="text" inputmode="numeric" maxlength="12" id="reg-p4-uid" placeholder="Player 4 Character UID" class="w-full px-3 py-2 bg-black/70 border border-venom-border rounded-lg text-white focus:border-venom-neon font-mono">
         </div>
 
         <button type="submit" class="w-full py-3 bg-venom-neon text-black font-gaming font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-venom-green transition">
@@ -430,7 +430,6 @@
       currentUser = user;
       userDocRef = doc(db, "users", user.uid);
       
-      // FIXED: Extract real user phone number from email or authentication data instead of defaulting to admin
       if (user.email && user.email.includes('@venom.esports.com')) {
         userPhoneData = user.email.split('@')[0];
       } else {
@@ -463,7 +462,6 @@
         }
       });
 
-      // Track user registrations to lock already joined buttons
       onSnapshot(query(collection(db, "registrations"), where("userId", "==", user.uid)), (snap) => {
         userBookedMatches.clear();
         snap.forEach(d => userBookedMatches.add(d.data().matchId));
@@ -480,7 +478,6 @@
       if (modalPts) modalPts.innerText = val;
     }
 
-    // Profile Modal & Manual Logout Control Functions
     window.openProfileModal = function() {
       document.getElementById('profile-phone').innerText = userPhoneData;
       document.getElementById('profile-points').innerText = currentBalance + " Pts";
@@ -503,7 +500,6 @@
       }
     };
 
-    // 1. DYNAMIC ALL TOURNAMENTS WITH TIME-BASED MATCH STATUS
     const feedContainer = document.getElementById('tournaments-feed');
     let rawTournamentsSnapshot = [];
 
@@ -536,10 +532,9 @@
         const isFull = bookedSlots >= maxSlots;
         const percentage = Math.min(Math.round((bookedSlots / maxSlots) * 100), 100);
 
-        // Time-based Match Status Logic (Live Soon, In Progress, Completed)
         const matchTimeMillis = new Date(t.matchTime).getTime();
         const currentTimeMillis = Date.now();
-        const matchDurationMillis = 30 * 60 * 1000; // 30 minutes match duration
+        const matchDurationMillis = 30 * 60 * 1000;
         const matchEndTimeMillis = matchTimeMillis + matchDurationMillis;
 
         let statusBadge = "";
@@ -597,13 +592,11 @@
               <div><span class="text-[10px] text-gray-400 block uppercase">Map</span><span class="font-gaming font-bold text-white">${t.map}</span></div>
             </div>
 
-            <!-- Custom Format & Prize Rules Box -->
             <div class="bg-black/30 border border-venom-neon/30 p-2.5 rounded-xl text-xs flex items-center gap-2">
               <i class="fa-solid fa-award text-yellow-400 text-sm"></i>
               <span class="text-gray-200 font-medium">${t.formatRules || 'Custom Tournament'}</span>
             </div>
 
-            <!-- Realtime Slot Capacity -->
             <div class="bg-black/60 p-2.5 rounded-xl border border-venom-border/60 space-y-1.5">
               <div class="flex justify-between items-center text-[11px] font-gaming">
                 <span class="text-gray-400 uppercase font-bold flex items-center gap-1.5">
@@ -618,7 +611,6 @@
               </div>
             </div>
 
-            <!-- Action Button with Duplicate & Full Protection -->
             ${isBooked ? `
               <button disabled class="w-full py-3 bg-zinc-800 text-venom-neon border border-venom-neon/40 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
                 <i class="fa-solid fa-check-circle"></i> Slot Confirmed (Check Upcoming) ✓
@@ -640,7 +632,6 @@
       });
     }
 
-    // 2. REALTIME UPCOMING / MY MATCHES
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -707,7 +698,6 @@
               </div>
             </div>
 
-            <!-- Room Credentials Box -->
             <div class="bg-black/80 border border-venom-neon/40 rounded-xl p-3 space-y-2">
               <div class="flex justify-between items-center border-b border-venom-border/80 pb-1.5">
                 <span class="text-[10px] uppercase font-bold text-venom-neon flex items-center gap-1.5">
@@ -750,7 +740,6 @@
       }
     }
 
-    // Modal Trigger with Strict Duplicate Prevention
     window.initiateBattleJoin = function(matchId, title, fee, matchTime, map, mode) {
       if (userBookedMatches.has(matchId)) {
         alert("Aap is match ke liye pehle hi register kar chuke hain!");
@@ -825,7 +814,6 @@
       document.getElementById('join-modal').classList.add('hidden');
     };
 
-    // Confirm Join Form Submit with Firestore Duplicate Check
     document.getElementById('join-match-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const matchId = document.getElementById('modal-match-id').value;
@@ -845,11 +833,16 @@
       const p4Name = document.getElementById('reg-p4-name').value.trim() || '';
       const p4Uid = document.getElementById('reg-p4-uid').value.trim() || '';
 
+      // Validate UIDs length
+      if (p1Uid.length < 5 || isNaN(p1Uid)) {
+        alert("Kripya Player 1 ka valid Character UID enter karein!");
+        return;
+      }
+
       closeJoinModal();
 
       try {
         if (currentUser && userDocRef) {
-          // Strict duplicate registration query check
           const existingQuery = query(
             collection(db, "registrations"), 
             where("userId", "==", currentUser.uid), 
@@ -915,7 +908,6 @@
       }
     });
 
-    // 3. Results Feed
     const resultsContainer = document.getElementById('results-feed');
     const resultsQuery = query(collection(db, "match_results"), orderBy("declaredAt", "desc"));
 
@@ -966,7 +958,6 @@
       });
     });
 
-    // Recharge Flow
     document.getElementById('recharge-request-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!currentUser) return;
@@ -996,7 +987,6 @@
       }
     });
 
-    // Withdraw Flow
     document.getElementById('withdraw-request-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!currentUser) return;
