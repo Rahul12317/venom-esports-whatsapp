@@ -583,7 +583,7 @@
       renderTournamentsFeed();
     });
 
-    // 1. FRONT PAGE / ALL TAB FEED (Hides match completely once it is completed)
+    // 1. FRONT PAGE / ALL TAB FEED (Hides completed matches and locks 'In Progress' matches)
     function renderTournamentsFeed() {
       feedContainer.innerHTML = "";
       allTournamentsCache = {};
@@ -599,7 +599,7 @@
       rawTournamentsSnapshot.forEach((t) => {
         const matchTimeMillis = new Date(t.matchTime).getTime();
         
-        // RULE: Agar match ka waqt nikal chuka hai (completed), toh front page (All tab) se hata do
+        // RULE: Agar match ka poora time khatam ho chuka hai, toh front page se hata do
         if (!isNaN(matchTimeMillis) && currentTimeMillis > (matchTimeMillis + matchDurationMillis)) {
           return;
         }
@@ -615,16 +615,48 @@
         const percentage = Math.min(Math.round((bookedSlots / maxSlots) * 100), 100);
 
         let statusBadge = "";
+        let isStarted = false;
+
         if (isNaN(matchTimeMillis)) {
           statusBadge = `<span class="bg-zinc-700 text-gray-300 font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Schedule Pending</span>`;
         } else if (currentTimeMillis < matchTimeMillis) {
           statusBadge = `<span class="bg-blue-600/90 text-white font-gaming text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">Live Soon</span>`;
         } else if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= (matchTimeMillis + matchDurationMillis)) {
           statusBadge = `<span class="bg-venom-neon text-black font-gaming text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-wider animate-pulse">🔥 In Progress</span>`;
+          isStarted = true; // Match shuru ho chuka hai!
         }
 
         const article = document.createElement('article');
         article.className = "bg-venom-card border border-venom-border rounded-2xl overflow-hidden shadow-xl hover:border-venom-neon/50 transition mb-4";
+        
+        let actionButtonHTML = "";
+        if (isBooked) {
+          actionButtonHTML = `
+            <button disabled class="w-full py-3 bg-zinc-800 text-venom-neon border border-venom-neon/40 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
+              <i class="fa-solid fa-check-circle"></i> Slot Confirmed (Check Upcoming) ✓
+            </button>
+          `;
+        } else if (isStarted || currentTimeMillis >= matchTimeMillis) {
+          actionButtonHTML = `
+            <button disabled class="w-full py-3 bg-zinc-900 text-red-400 border border-red-800/60 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
+              <i class="fa-solid fa-lock"></i> REGISTRATION CLOSED (MATCH STARTED)
+            </button>
+          `;
+        } else if (isFull) {
+          actionButtonHTML = `
+            <button disabled class="w-full py-3 bg-red-950/60 text-red-400 border border-red-800/80 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
+              <i class="fa-solid fa-lock"></i> MATCH FULL (NO SLOTS LEFT)
+            </button>
+          `;
+        } else {
+          actionButtonHTML = `
+            <button id="btn-${id}" onclick="initiateBattleJoin('${id}', '${t.title}', ${t.entryFee}, '${t.matchTime}', '${t.map}', '${t.mode}')" 
+              class="w-full py-3 bg-venom-neon text-black hover:bg-venom-green shadow-[0_0_15px_rgba(57,255,20,0.3)] font-gaming font-bold text-xs uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2">
+              <i class="fa-solid fa-crosshairs"></i> Join Battle • ${t.entryFee} Pts
+            </button>
+          `;
+        }
+
         article.innerHTML = `
           <div class="relative h-36 w-full overflow-hidden">
             <img src="${t.bannerUrl}" alt="${t.title}" class="w-full h-full object-cover filter brightness-[0.65] contrast-125">
@@ -686,20 +718,7 @@
               </div>
             </div>
 
-            ${isBooked ? `
-              <button disabled class="w-full py-3 bg-zinc-800 text-venom-neon border border-venom-neon/40 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
-                <i class="fa-solid fa-check-circle"></i> Slot Confirmed (Check Upcoming) ✓
-              </button>
-            ` : isFull ? `
-              <button disabled class="w-full py-3 bg-red-950/60 text-red-400 border border-red-800/80 cursor-not-allowed font-gaming font-bold text-xs uppercase tracking-wider rounded-xl flex items-center justify-center gap-2">
-                <i class="fa-solid fa-lock"></i> MATCH FULL (NO SLOTS LEFT)
-              </button>
-            ` : `
-              <button id="btn-${id}" onclick="initiateBattleJoin('${id}', '${t.title}', ${t.entryFee}, '${t.matchTime}', '${t.map}', '${t.mode}')" 
-                class="w-full py-3 bg-venom-neon text-black hover:bg-venom-green shadow-[0_0_15px_rgba(57,255,20,0.3)] font-gaming font-bold text-xs uppercase tracking-wider rounded-xl transition active:scale-[0.98] flex items-center justify-center gap-2">
-                <i class="fa-solid fa-crosshairs"></i> Join Battle • ${t.entryFee} Pts
-              </button>
-            `}
+            ${actionButtonHTML}
           </div>
         `;
 
@@ -707,7 +726,7 @@
       });
     }
 
-    // 2. UPCOMING TAB (Realtime: Upcoming -> In Progress -> Completed)
+    // 2. UPCOMING TAB (Hides match when it starts - moves to results/in-progress)
     function listenToMyUpcomingMatches(userId) {
       const upcomingContainer = document.getElementById('upcoming-feed');
       const countBadge = document.getElementById('upcoming-count');
@@ -717,23 +736,33 @@
 
       onSnapshot(myRegQuery, (snap) => {
         upcomingContainer.innerHTML = "";
-        const count = snap.size;
-        countBadge.innerText = `${count} Joined`;
+        let activeUpcomingCount = 0;
 
-        if (count > 0) {
+        snap.forEach((docSnap) => {
+          const reg = docSnap.data();
+          const matchTimeMillis = new Date(reg.matchSchedule).getTime();
+          const currentTimeMillis = Date.now();
+
+          if (!isNaN(matchTimeMillis) && currentTimeMillis < matchTimeMillis) {
+            activeUpcomingCount++;
+          }
+        });
+
+        countBadge.innerText = `${activeUpcomingCount} Joined`;
+
+        if (activeUpcomingCount > 0) {
           pingBadge.classList.remove('hidden');
         } else {
           pingBadge.classList.add('hidden');
           upcomingContainer.innerHTML = `
             <div class="bg-venom-card border border-venom-border p-6 rounded-2xl text-center space-y-3">
               <i class="fa-regular fa-calendar-xmark text-3xl text-gray-500"></i>
-              <p class="text-xs text-gray-400">Aapne abhi koi upcoming match book nahi kiya hai.<br>Tournament join karne ke baad wo yahan aayega.</p>
+              <p class="text-xs text-gray-400">Aapka koi bhi future upcoming match nahi hai.<br>Match start hone par wo Results tab me show hoga.</p>
               <button onclick="switchTab('tournaments')" class="px-4 py-2 bg-venom-neon text-black font-gaming font-bold text-xs rounded-xl uppercase">
                 Browse Tournaments
               </button>
             </div>
           `;
-          return;
         }
 
         snap.forEach((docSnap) => {
@@ -744,15 +773,10 @@
 
           const matchTimeMillis = new Date(reg.matchSchedule).getTime();
           const currentTimeMillis = Date.now();
-          const matchDurationMillis = 30 * 60 * 1000; // 30 mins duration
 
-          let matchStateBadge = "Upcoming";
-          if (!isNaN(matchTimeMillis)) {
-            if (currentTimeMillis >= matchTimeMillis && currentTimeMillis <= (matchTimeMillis + matchDurationMillis)) {
-              matchStateBadge = "🔥 In Progress";
-            } else if (currentTimeMillis > (matchTimeMillis + matchDurationMillis)) {
-              matchStateBadge = "Completed";
-            }
+          // RULE: Agar match start ho chuka hai, toh Upcoming tab se hata do
+          if (!isNaN(matchTimeMillis) && currentTimeMillis >= matchTimeMillis) {
+            return;
           }
 
           const card = document.createElement('div');
@@ -775,7 +799,7 @@
             <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
               <div>
                 <span class="text-[10px] bg-venom-neon/10 text-venom-neon border border-venom-neon/30 px-2 py-0.5 rounded font-gaming font-bold uppercase">
-                  ${reg.mode} • ${matchStateBadge}
+                  ${reg.mode} • Upcoming
                 </span>
                 <h4 class="font-gaming text-sm font-bold text-white uppercase mt-1">${reg.matchName} (${reg.map || 'Custom'})</h4>
                 <p class="text-[11px] text-gray-300 flex items-center gap-1 mt-0.5">
@@ -842,6 +866,12 @@
     }
 
     window.initiateBattleJoin = function(matchId, title, fee, matchTime, map, mode) {
+      const matchTimeMillis = new Date(matchTime).getTime();
+      if (!isNaN(matchTimeMillis) && Date.now() >= matchTimeMillis) {
+        alert("Yeh match shuru ho chuka hai! Ab registration band hai.");
+        return;
+      }
+
       if (userBookedMatches.has(matchId)) {
         alert("Aap is match ke liye pehle hi register kar chuke hain!");
         return;
@@ -923,6 +953,13 @@
       const matchTime = document.getElementById('modal-match-time').value;
       const map = document.getElementById('modal-match-map').value;
       const mode = document.getElementById('modal-match-mode').value;
+
+      const matchTimeMillis = new Date(matchTime).getTime();
+      if (!isNaN(matchTimeMillis) && Date.now() >= matchTimeMillis) {
+        closeJoinModal();
+        alert("Yeh match shuru ho chuka hai! Ab registration band hai.");
+        return;
+      }
 
       const teamName = document.getElementById('reg-team-name').value.trim() || 'Solo Player';
       const p1Name = document.getElementById('reg-p1-name').value.trim();
@@ -1016,72 +1053,104 @@
       }
     });
 
-    // 3. RESULTS FEED (Removes results automatically after 24 hours)
+    // 3. RESULTS TAB (Shows In Progress matches + declared results with 24hr expiry)
     const resultsContainer = document.getElementById('results-feed');
-    const resultsQuery = query(collection(db, "match_results"), orderBy("declaredAt", "desc"));
 
-    onSnapshot(resultsQuery, (snapshot) => {
-      resultsContainer.innerHTML = "";
-      if (snapshot.empty) {
-        resultsContainer.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Abhi tak koi match declare nahi hua hai.</p>';
-        return;
-      }
-
+    function renderResultsAndInProgress() {
       const currentTime = Date.now();
-      const twentyFourHours = 24 * 60 * 60 * 1000; // 24 hours expiry limit
-      let visibleResultsCount = 0;
+      const matchDurationMillis = 30 * 60 * 1000; // 30 mins
+      const twentyFourHours = 24 * 60 * 60 * 1000;
 
-      snapshot.forEach((docSnap) => {
-        const res = docSnap.data();
-        const declaredAtMillis = new Date(res.declaredAt).getTime();
+      onSnapshot(query(collection(db, "tournaments"), orderBy("createdAt", "desc")), (tourneySnap) => {
+        onSnapshot(query(collection(db, "match_results"), orderBy("declaredAt", "desc")), (resultSnap) => {
+          resultsContainer.innerHTML = "";
+          
+          let resultsHTML = "";
+          let activeItemsCount = 0;
 
-        // RULE: Agar result declare hue 24 ghante se zyada ho gaye hain, toh results feed se hata do
-        if (!isNaN(declaredAtMillis) && (currentTime - declaredAtMillis) > twentyFourHours) {
-          return;
-        }
+          // 1. Show "In Progress" matches in Results tab
+          tourneySnap.forEach((docSnap) => {
+            const t = docSnap.data();
+            const matchTimeMillis = new Date(t.matchTime).getTime();
 
-        visibleResultsCount++;
-        const declaredDate = new Date(res.declaredAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
-        const card = document.createElement('div');
-        card.className = "bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg mb-4";
-        card.innerHTML = `
-          <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
-            <div>
-              <h4 class="font-gaming text-sm font-bold text-white uppercase">${res.title}</h4>
-              <p class="text-[10px] text-gray-400">${res.mapMode} • Completed on ${declaredDate}</p>
-            </div>
-            <span class="text-[10px] bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded font-bold uppercase">Official</span>
-          </div>
-
-          <div class="space-y-2 text-xs">
-            ${res.allWinners && res.allWinners.length > 0 ? `
-              <div class="space-y-1.5 font-mono text-xs">
-                ${res.allWinners.map((w, i) => `
-                  <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border ${i === 0 ? 'border-yellow-400/50' : 'border-venom-border'}">
-                    <div class="flex items-center gap-2">
-                      <span class="font-gaming font-bold ${i === 0 ? 'text-yellow-400 font-black' : 'text-gray-400'}">${w.rankTag}</span>
-                      <span class="text-white font-bold">${w.name}</span>
+            if (!isNaN(matchTimeMillis)) {
+              if (currentTime >= matchTimeMillis && currentTime <= (matchTimeMillis + matchDurationMillis)) {
+                activeItemsCount++;
+                resultsHTML += `
+                  <div class="bg-venom-card border border-venom-neon p-4 rounded-2xl space-y-3 shadow-lg mb-4">
+                    <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
+                      <div>
+                        <h4 class="font-gaming text-sm font-bold text-white uppercase">${t.title}</h4>
+                        <p class="text-[10px] text-venom-neon font-bold animate-pulse">🔥 MATCH IN PROGRESS (Lobby Live)</p>
+                      </div>
+                      <span class="text-[10px] bg-venom-neon/20 text-venom-neon border border-venom-neon/40 px-2 py-0.5 rounded font-bold uppercase">LIVE</span>
                     </div>
-                    <span class="font-gaming text-venom-neon font-black">+${w.points} Pts</span>
+                    <div class="text-xs text-gray-300 flex justify-between">
+                      <span>Map: ${t.map} • Mode: ${t.mode}</span>
+                      <span class="text-yellow-400 font-bold">Prize: ${t.prizePool}</span>
+                    </div>
                   </div>
-                `).join('')}
-              </div>
-            ` : `
-              <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border border-venom-neon/30">
-                <span class="text-white font-bold">${res.winner}</span>
-                <span class="font-gaming text-venom-neon font-black">${res.winnerPrize}</span>
-              </div>
-            `}
-          </div>
-        `;
-        resultsContainer.appendChild(card);
-      });
+                `;
+              }
+            }
+          });
 
-      if (visibleResultsCount === 0) {
-        resultsContainer.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Filhal koi active result available nahi hai.</p>';
-      }
-    });
+          // 2. Show Declared Results (within 24 hours)
+          resultSnap.forEach((docSnap) => {
+            const res = docSnap.data();
+            const declaredAtMillis = new Date(res.declaredAt).getTime();
+
+            if (!isNaN(declaredAtMillis) && (currentTime - declaredAtMillis) > twentyFourHours) {
+              return;
+            }
+
+            activeItemsCount++;
+            const declaredDate = new Date(res.declaredAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+            resultsHTML += `
+              <div class="bg-venom-card border border-venom-border p-4 rounded-2xl space-y-3 shadow-lg mb-4">
+                <div class="flex items-center justify-between border-b border-venom-border pb-2.5">
+                  <div>
+                    <h4 class="font-gaming text-sm font-bold text-white uppercase">${res.title}</h4>
+                    <p class="text-[10px] text-gray-400">${res.mapMode} • Completed on ${declaredDate}</p>
+                  </div>
+                  <span class="text-[10px] bg-yellow-400/10 text-yellow-400 border border-yellow-400/30 px-2 py-0.5 rounded font-bold uppercase">Official</span>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                  ${res.allWinners && res.allWinners.length > 0 ? `
+                    <div class="space-y-1.5 font-mono text-xs">
+                      ${res.allWinners.map((w, i) => `
+                        <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border ${i === 0 ? 'border-yellow-400/50' : 'border-venom-border'}">
+                          <div class="flex items-center gap-2">
+                            <span class="font-gaming font-bold ${i === 0 ? 'text-yellow-400 font-black' : 'text-gray-400'}">${w.rankTag}</span>
+                            <span class="text-white font-bold">${w.name}</span>
+                          </div>
+                          <span class="font-gaming text-venom-neon font-black">+${w.points} Pts</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : `
+                    <div class="flex items-center justify-between bg-black/50 p-2.5 rounded-xl border border-venom-neon/30">
+                      <span class="text-white font-bold">${res.winner}</span>
+                      <span class="font-gaming text-venom-neon font-black">${res.winnerPrize}</span>
+                    </div>
+                  `}
+                </div>
+              </div>
+            `;
+          });
+
+          if (activeItemsCount === 0) {
+            resultsContainer.innerHTML = '<p class="text-xs text-gray-500 text-center py-6">Filhal koi active ya completed match result available nahi hai.</p>';
+          } else {
+            resultsContainer.innerHTML = resultsHTML;
+          }
+        });
+      });
+    }
+
+    renderResultsAndInProgress();
 
     document.getElementById('recharge-request-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
